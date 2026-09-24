@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+<channel>
+<title>Press Releases - Monetary Policy</title>
+<link>https://www.federalreserve.gov/feeds/press_monetary.xml</link>
+<item>
+<title>Federal Reserve issues FOMC statement</title>
+<link>https://www.federalreserve.gov/newsevents/pressreleases/monetary20260916a.htm</link>
+<pubDate>Wed, 16 Sep 2026 14:00:00 EST</pubDate>
+</item>
+<item>
+<title>Minutes of the Federal Open Market Committee, July 28-29, 2026</title>
+<link>https://www.federalreserve.gov/monetarypolicy/fomcminutes20260729.htm</link>
+<pubDate>Wed, 19 Aug 2026 14:00:00 EST</pubDate>
+</item>
+<item>
+<title>Federal Reserve issues FOMC statement</title>
+<link>https://www.federalreserve.gov/newsevents/pressreleases/monetary20260729a.htm</link>
+<pubDate>Wed, 29 Jul 2026 14:00:00 EST</pubDate>
+</item>
+<item>
+<title>Federal Reserve issues FOMC statement</title>
+<link>https://www.federalreserve.gov/newsevents/pressreleases/monetary20260318a.htm</link>
+<pubDate>Wed, 18 Mar 2026 14:00:00 EST</pubDate>
+</item>
+</channel>
+</rss>
