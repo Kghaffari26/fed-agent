@@ -1,0 +1,126 @@
+{
+  "meta": {
+    "run_id": "run-2026-09-23T14:01:05Z",
+    "generated_at": "2026-09-23T14:01:05Z",
+    "status": "ok",
+    "data_changed": true,
+    "warnings": []
+  },
+  "headline": "August CPI rose 2.9% YoY (prior 2.7%); core PCE 3-mo annualized cooled to 2.4%.",
+  "key_stats": [
+    {"label": "CPI YoY", "value": 2.9, "format": "percent", "delta": 0.2, "delta_format": "pp_signed", "good_direction": "down"},
+    {"label": "10Y yield", "value": 4.12, "format": "percent", "delta": -0.06, "delta_format": "pp_signed", "good_direction": "neutral"}
+  ],
+  "regimes": {
+    "inflation": {"label": "Cooling", "detail": "Core PCE 2.8% YoY; 2.4% 3-mo annualized"},
+    "labor": {"label": "Softening", "detail": "Unemployment 4.4%; payrolls 3-mo avg +61K"},
+    "growth": {"label": "Moderate", "detail": "Real GDP +2.1% annualized (Q2)"},
+    "policy": {"label": "Holding", "detail": "Target range 4.00-4.25%"},
+    "curve": {"label": "Normal", "detail": "10Y-2Y +0.54 pp; last sign change Sep 2024"}
+  },
+  "brief": {
+    "bullets": [
+      {
+        "text": "Headline CPI rose to 2.9% YoY in August from 2.7%, while core CPI held at 3.1%.",
+        "event_ids": ["new_release:CPIAUCSL:2026-08", "new_release:CPILFESL:2026-08"],
+        "citations": [{"name": "FRED: CPIAUCSL", "url": "https://fred.stlouisfed.org/series/CPIAUCSL"}]
+      }
+    ],
+    "narrative_source": "llm",
+    "model": "claude-sonnet-5",
+    "generated_at": "2026-09-23T14:01:05Z",
+    "reused_from_run_id": null
+  },
+  "indicators": [
+    {
+      "id": "cpi",
+      "name": "CPI (all items)",
+      "group": "inflation",
+      "fred_series": "CPIAUCSL",
+      "source_url": "https://fred.stlouisfed.org/series/CPIAUCSL",
+      "frequency": "monthly",
+      "units_display": "percent",
+      "primary": {"label": "YoY", "value": 2.9, "format": "percent"},
+      "change": {"label": "vs prior", "value": 0.2, "format": "pp_signed", "good_direction": "down"},
+      "secondary": [{"label": "MoM", "value": 0.3, "format": "percent_signed"}],
+      "period": "2026-08-01",
+      "period_label": "Aug 2026",
+      "released_at": "2026-09-11",
+      "next_release": "2026-10-14",
+      "delayed": false,
+      "revision": null,
+      "spark": {"dates": ["2024-09-01", "2024-10-01"], "values": [2.4, 2.5]},
+      "series": {"dates": ["2016-09-01", "2016-10-01"], "values": [1.5, 1.6]}
+    },
+    {
+      "id": "payrolls",
+      "name": "Nonfarm payrolls",
+      "group": "labor",
+      "fred_series": "PAYEMS",
+      "source_url": "https://fred.stlouisfed.org/series/PAYEMS",
+      "frequency": "monthly",
+      "units_display": "thousands",
+      "primary": {"label": "MoM", "value": 142.0, "format": "count_signed_thousands"},
+      "secondary": [],
+      "period": "2026-08-01",
+      "period_label": "Aug 2026",
+      "revision": {"period_label": "Jul 2026", "old": 73, "new": 41, "format": "count_signed_thousands"},
+      "spark": {"dates": ["2024-09-01"], "values": [120.0]},
+      "series": {"dates": ["2016-09-01"], "values": [100.0]}
+    }
+  ],
+  "yield_curve": {
+    "series": {
+      "dates": ["2026-09-18"],
+      "y2": [3.58],
+      "y10": [4.12],
+      "spread_10y2y": [0.54]
+    },
+    "inversion_periods": [{"start": "2022-07-05", "end": "2024-09-06"}],
+    "snapshot": [
+      {"tenor": "3M", "value": 4.02},
+      {"tenor": "2Y", "value": 3.58},
+      {"tenor": "5Y", "value": 3.71},
+      {"tenor": "10Y", "value": 4.12},
+      {"tenor": "30Y", "value": 4.71}
+    ]
+  },
+  "fomc": {
+    "latest": {
+      "date": "2026-09-16",
+      "url": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20260916a.htm",
+      "decision": "hold",
+      "target_range": {"lower": 4.0, "upper": 4.25},
+      "change_bp": 0,
+      "votes": {"for_count": 11, "against": [{"name": "Jane Doe", "preferred": "a 25 bp cut"}]},
+      "latest_text": "full policy text",
+      "previous_date": "2026-07-29",
+      "previous_text": "previous policy text",
+      "changes": [
+        {"idx": 0, "type": "modified", "before": "job gains have remained solid", "after": "job gains have slowed"}
+      ],
+      "read": {
+        "summary": "The Committee held rates steady, citing a cooling but resilient labor market.",
+        "tone_shift": "more_dovish",
+        "rationale": "Language on job gains softened, citing change 0.",
+        "cited_change_idx": [0],
+        "key_phrases": [{"phrase": "job gains have slowed", "interpretation": "acknowledges labor cooling"}],
+        "narrative_source": "llm"
+      }
+    },
+    "next_meeting": {"start": "2026-10-27", "end": "2026-10-28", "has_sep": false},
+    "minutes": {
+      "meeting_date": "2026-07-29",
+      "released_at": "2026-08-19",
+      "url": "https://www.federalreserve.gov/monetarypolicy/fomcminutes20260729.htm",
+      "summary": "Participants discussed the balance of risks.",
+      "narrative_source": "llm"
+    }
+  },
+  "calendar": [
+    {"date": "2026-09-26", "release": "Personal Income and Outlays", "indicator_ids": ["pce", "core_pce"]}
+  ],
+  "events": [
+    {"id": "new_release:CPIAUCSL:2026-08", "type": "new_release", "priority": 80, "facts": {"yoy": 2.9, "prior_yoy": 2.7, "mom": 0.3}}
+  ]
+}

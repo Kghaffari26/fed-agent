@@ -1,0 +1,1139 @@
+{
+  "$defs": {
+    "Brief": {
+      "properties": {
+        "bullets": {
+          "items": {
+            "$ref": "#/$defs/BriefBullet"
+          },
+          "title": "Bullets",
+          "type": "array"
+        },
+        "narrative_source": {
+          "enum": [
+            "llm",
+            "template"
+          ],
+          "title": "Narrative Source",
+          "type": "string"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model"
+        },
+        "generated_at": {
+          "format": "date-time",
+          "title": "Generated At",
+          "type": "string"
+        },
+        "reused_from_run_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reused From Run Id"
+        }
+      },
+      "required": [
+        "bullets",
+        "narrative_source",
+        "generated_at"
+      ],
+      "title": "Brief",
+      "type": "object"
+    },
+    "BriefBullet": {
+      "properties": {
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "event_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Event Ids",
+          "type": "array"
+        },
+        "citations": {
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "title": "Citations",
+          "type": "array"
+        }
+      },
+      "required": [
+        "text",
+        "event_ids"
+      ],
+      "title": "BriefBullet",
+      "type": "object"
+    },
+    "CalendarEntry": {
+      "properties": {
+        "date": {
+          "format": "date",
+          "title": "Date",
+          "type": "string"
+        },
+        "release": {
+          "title": "Release",
+          "type": "string"
+        },
+        "indicator_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Indicator Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "date",
+        "release",
+        "indicator_ids"
+      ],
+      "title": "CalendarEntry",
+      "type": "object"
+    },
+    "Citation": {
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "url"
+      ],
+      "title": "Citation",
+      "type": "object"
+    },
+    "EventOut": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "type": {
+          "title": "Type",
+          "type": "string"
+        },
+        "priority": {
+          "title": "Priority",
+          "type": "integer"
+        },
+        "facts": {
+          "additionalProperties": true,
+          "title": "Facts",
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "priority"
+      ],
+      "title": "EventOut",
+      "type": "object"
+    },
+    "FomcBlock": {
+      "properties": {
+        "latest": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FomcLatest"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "next_meeting": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FomcNextMeeting"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "minutes": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FomcMinutesOut"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "FomcBlock",
+      "type": "object"
+    },
+    "FomcChange": {
+      "properties": {
+        "idx": {
+          "title": "Idx",
+          "type": "integer"
+        },
+        "type": {
+          "enum": [
+            "added",
+            "removed",
+            "modified"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "before": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Before"
+        },
+        "after": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "After"
+        }
+      },
+      "required": [
+        "idx",
+        "type"
+      ],
+      "title": "FomcChange",
+      "type": "object"
+    },
+    "FomcKeyPhrase": {
+      "properties": {
+        "phrase": {
+          "title": "Phrase",
+          "type": "string"
+        },
+        "interpretation": {
+          "title": "Interpretation",
+          "type": "string"
+        }
+      },
+      "required": [
+        "phrase",
+        "interpretation"
+      ],
+      "title": "FomcKeyPhrase",
+      "type": "object"
+    },
+    "FomcLatest": {
+      "properties": {
+        "date": {
+          "format": "date",
+          "title": "Date",
+          "type": "string"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "decision": {
+          "enum": [
+            "hold",
+            "cut",
+            "hike"
+          ],
+          "title": "Decision",
+          "type": "string"
+        },
+        "target_range": {
+          "$ref": "#/$defs/FomcTargetRange"
+        },
+        "change_bp": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Change Bp"
+        },
+        "votes": {
+          "$ref": "#/$defs/FomcVotes"
+        },
+        "latest_text": {
+          "title": "Latest Text",
+          "type": "string"
+        },
+        "previous_date": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Previous Date"
+        },
+        "previous_text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Previous Text"
+        },
+        "changes": {
+          "items": {
+            "$ref": "#/$defs/FomcChange"
+          },
+          "title": "Changes",
+          "type": "array"
+        },
+        "read": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FomcRead"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "crosscheck_pending": {
+          "default": false,
+          "title": "Crosscheck Pending",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "date",
+        "url",
+        "decision",
+        "target_range",
+        "votes",
+        "latest_text"
+      ],
+      "title": "FomcLatest",
+      "type": "object"
+    },
+    "FomcMinutesOut": {
+      "properties": {
+        "meeting_date": {
+          "format": "date",
+          "title": "Meeting Date",
+          "type": "string"
+        },
+        "released_at": {
+          "format": "date",
+          "title": "Released At",
+          "type": "string"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Summary"
+        },
+        "narrative_source": {
+          "anyOf": [
+            {
+              "enum": [
+                "llm",
+                "template"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Narrative Source"
+        }
+      },
+      "required": [
+        "meeting_date",
+        "released_at",
+        "url"
+      ],
+      "title": "FomcMinutesOut",
+      "type": "object"
+    },
+    "FomcNextMeeting": {
+      "properties": {
+        "start": {
+          "format": "date",
+          "title": "Start",
+          "type": "string"
+        },
+        "end": {
+          "format": "date",
+          "title": "End",
+          "type": "string"
+        },
+        "has_sep": {
+          "default": false,
+          "title": "Has Sep",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "title": "FomcNextMeeting",
+      "type": "object"
+    },
+    "FomcRead": {
+      "properties": {
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        },
+        "tone_shift": {
+          "enum": [
+            "more_hawkish",
+            "unchanged",
+            "more_dovish"
+          ],
+          "title": "Tone Shift",
+          "type": "string"
+        },
+        "rationale": {
+          "title": "Rationale",
+          "type": "string"
+        },
+        "cited_change_idx": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Cited Change Idx",
+          "type": "array"
+        },
+        "key_phrases": {
+          "items": {
+            "$ref": "#/$defs/FomcKeyPhrase"
+          },
+          "title": "Key Phrases",
+          "type": "array"
+        },
+        "narrative_source": {
+          "enum": [
+            "llm",
+            "template"
+          ],
+          "title": "Narrative Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "summary",
+        "tone_shift",
+        "rationale",
+        "narrative_source"
+      ],
+      "title": "FomcRead",
+      "type": "object"
+    },
+    "FomcTargetRange": {
+      "properties": {
+        "lower": {
+          "title": "Lower",
+          "type": "number"
+        },
+        "upper": {
+          "title": "Upper",
+          "type": "number"
+        }
+      },
+      "required": [
+        "lower",
+        "upper"
+      ],
+      "title": "FomcTargetRange",
+      "type": "object"
+    },
+    "FomcVoteAgainst": {
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "preferred": {
+          "title": "Preferred",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "preferred"
+      ],
+      "title": "FomcVoteAgainst",
+      "type": "object"
+    },
+    "FomcVotes": {
+      "properties": {
+        "for_count": {
+          "title": "For Count",
+          "type": "integer"
+        },
+        "against": {
+          "items": {
+            "$ref": "#/$defs/FomcVoteAgainst"
+          },
+          "title": "Against",
+          "type": "array"
+        }
+      },
+      "required": [
+        "for_count"
+      ],
+      "title": "FomcVotes",
+      "type": "object"
+    },
+    "IndicatorOutput": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "group": {
+          "title": "Group",
+          "type": "string"
+        },
+        "fred_series": {
+          "title": "Fred Series",
+          "type": "string"
+        },
+        "source_url": {
+          "title": "Source Url",
+          "type": "string"
+        },
+        "frequency": {
+          "title": "Frequency",
+          "type": "string"
+        },
+        "units_display": {
+          "title": "Units Display",
+          "type": "string"
+        },
+        "primary": {
+          "$ref": "#/$defs/ValueBlock"
+        },
+        "change": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ValueBlock"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "secondary": {
+          "items": {
+            "$ref": "#/$defs/ValueBlock"
+          },
+          "title": "Secondary",
+          "type": "array"
+        },
+        "period": {
+          "format": "date",
+          "title": "Period",
+          "type": "string"
+        },
+        "period_label": {
+          "title": "Period Label",
+          "type": "string"
+        },
+        "released_at": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Released At"
+        },
+        "next_release": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Next Release"
+        },
+        "delayed": {
+          "default": false,
+          "title": "Delayed",
+          "type": "boolean"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RevisionBlock"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "spark": {
+          "$ref": "#/$defs/SeriesData"
+        },
+        "series": {
+          "$ref": "#/$defs/SeriesData"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "group",
+        "fred_series",
+        "source_url",
+        "frequency",
+        "units_display",
+        "primary",
+        "period",
+        "period_label",
+        "spark",
+        "series"
+      ],
+      "title": "IndicatorOutput",
+      "type": "object"
+    },
+    "InversionPeriod": {
+      "properties": {
+        "start": {
+          "format": "date",
+          "title": "Start",
+          "type": "string"
+        },
+        "end": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End"
+        }
+      },
+      "required": [
+        "start"
+      ],
+      "title": "InversionPeriod",
+      "type": "object"
+    },
+    "KeyStat": {
+      "properties": {
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "number"
+        },
+        "format": {
+          "title": "Format",
+          "type": "string"
+        },
+        "delta": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Delta"
+        },
+        "delta_format": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Delta Format"
+        },
+        "good_direction": {
+          "enum": [
+            "up",
+            "down",
+            "neutral"
+          ],
+          "title": "Good Direction",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "value",
+        "format",
+        "good_direction"
+      ],
+      "title": "KeyStat",
+      "type": "object"
+    },
+    "Meta": {
+      "properties": {
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "generated_at": {
+          "format": "date-time",
+          "title": "Generated At",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "ok",
+            "failed"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "data_changed": {
+          "title": "Data Changed",
+          "type": "boolean"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "run_id",
+        "generated_at",
+        "status",
+        "data_changed"
+      ],
+      "title": "Meta",
+      "type": "object"
+    },
+    "Regime": {
+      "properties": {
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "detail"
+      ],
+      "title": "Regime",
+      "type": "object"
+    },
+    "Regimes": {
+      "properties": {
+        "inflation": {
+          "$ref": "#/$defs/Regime"
+        },
+        "labor": {
+          "$ref": "#/$defs/Regime"
+        },
+        "growth": {
+          "$ref": "#/$defs/Regime"
+        },
+        "policy": {
+          "$ref": "#/$defs/Regime"
+        },
+        "curve": {
+          "$ref": "#/$defs/Regime"
+        }
+      },
+      "required": [
+        "inflation",
+        "labor",
+        "growth",
+        "policy",
+        "curve"
+      ],
+      "title": "Regimes",
+      "type": "object"
+    },
+    "RevisionBlock": {
+      "properties": {
+        "period_label": {
+          "title": "Period Label",
+          "type": "string"
+        },
+        "old": {
+          "title": "Old",
+          "type": "number"
+        },
+        "new": {
+          "title": "New",
+          "type": "number"
+        },
+        "format": {
+          "title": "Format",
+          "type": "string"
+        }
+      },
+      "required": [
+        "period_label",
+        "old",
+        "new",
+        "format"
+      ],
+      "title": "RevisionBlock",
+      "type": "object"
+    },
+    "SeriesData": {
+      "properties": {
+        "dates": {
+          "items": {
+            "format": "date",
+            "type": "string"
+          },
+          "title": "Dates",
+          "type": "array"
+        },
+        "values": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": "Values",
+          "type": "array"
+        }
+      },
+      "required": [
+        "dates",
+        "values"
+      ],
+      "title": "SeriesData",
+      "type": "object"
+    },
+    "ValueBlock": {
+      "properties": {
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "number"
+        },
+        "format": {
+          "title": "Format",
+          "type": "string"
+        },
+        "delta": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Delta"
+        },
+        "delta_format": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Delta Format"
+        },
+        "good_direction": {
+          "anyOf": [
+            {
+              "enum": [
+                "up",
+                "down",
+                "neutral"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Good Direction"
+        }
+      },
+      "required": [
+        "label",
+        "value",
+        "format"
+      ],
+      "title": "ValueBlock",
+      "type": "object"
+    },
+    "YieldCurve": {
+      "properties": {
+        "series": {
+          "$ref": "#/$defs/YieldCurveSeries"
+        },
+        "inversion_periods": {
+          "items": {
+            "$ref": "#/$defs/InversionPeriod"
+          },
+          "title": "Inversion Periods",
+          "type": "array"
+        },
+        "snapshot": {
+          "items": {
+            "$ref": "#/$defs/YieldSnapshotPoint"
+          },
+          "title": "Snapshot",
+          "type": "array"
+        }
+      },
+      "required": [
+        "series",
+        "snapshot"
+      ],
+      "title": "YieldCurve",
+      "type": "object"
+    },
+    "YieldCurveSeries": {
+      "properties": {
+        "dates": {
+          "items": {
+            "format": "date",
+            "type": "string"
+          },
+          "title": "Dates",
+          "type": "array"
+        },
+        "y2": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": "Y2",
+          "type": "array"
+        },
+        "y10": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": "Y10",
+          "type": "array"
+        },
+        "spread_10y2y": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": "Spread 10Y2Y",
+          "type": "array"
+        }
+      },
+      "required": [
+        "dates",
+        "y2",
+        "y10",
+        "spread_10y2y"
+      ],
+      "title": "YieldCurveSeries",
+      "type": "object"
+    },
+    "YieldSnapshotPoint": {
+      "properties": {
+        "tenor": {
+          "title": "Tenor",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "number"
+        }
+      },
+      "required": [
+        "tenor",
+        "value"
+      ],
+      "title": "YieldSnapshotPoint",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "meta": {
+      "$ref": "#/$defs/Meta"
+    },
+    "headline": {
+      "title": "Headline",
+      "type": "string"
+    },
+    "key_stats": {
+      "items": {
+        "$ref": "#/$defs/KeyStat"
+      },
+      "title": "Key Stats",
+      "type": "array"
+    },
+    "regimes": {
+      "$ref": "#/$defs/Regimes"
+    },
+    "brief": {
+      "$ref": "#/$defs/Brief"
+    },
+    "indicators": {
+      "items": {
+        "$ref": "#/$defs/IndicatorOutput"
+      },
+      "title": "Indicators",
+      "type": "array"
+    },
+    "yield_curve": {
+      "$ref": "#/$defs/YieldCurve"
+    },
+    "fomc": {
+      "$ref": "#/$defs/FomcBlock"
+    },
+    "calendar": {
+      "items": {
+        "$ref": "#/$defs/CalendarEntry"
+      },
+      "title": "Calendar",
+      "type": "array"
+    },
+    "events": {
+      "items": {
+        "$ref": "#/$defs/EventOut"
+      },
+      "title": "Events",
+      "type": "array"
+    }
+  },
+  "required": [
+    "meta",
+    "headline",
+    "key_stats",
+    "regimes",
+    "brief",
+    "indicators",
+    "yield_curve",
+    "fomc"
+  ],
+  "title": "MacroOutput",
+  "type": "object"
+}
