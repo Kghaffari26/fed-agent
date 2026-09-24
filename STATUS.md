@@ -1,76 +1,124 @@
 # Status
 
-Working autonomously overnight per instructions. Updated as work progresses; see `DECISIONS.md` for the
-one-line rationale behind each judgment call.
-
-## agents-core dependency
-
-**Blocked, working around it.** `Kghaffari26/agents-core` (main @ `f79b6aa1`) is still the old monorepo
-shape — `core/registry.py`, `core/guards.py`, `core/llm.py` etc. live at the repo root and are imported
-directly (`from core.agent import Agent`), with agents registered in a hardcoded `AGENT_IDS` tuple and
-loaded via `agents.<id>.agent` from *inside the same repo*. No commit on any branch yet has
-`src/agents_core/guards.py` + `src/agents_core/registry.py` — the installable, entry-point-based package
-shape this multi-repo build needs.
-
-Rechecking periodically (see below). Meanwhile building every core-independent piece: config models,
-transforms/revisions/regimes/events, and FOMC parsing/diff — all pure Python, fully tested against fixtures,
-with no dependency on agents-core. `scripts/verify_macro_series.py` and the FOMC HTML fixtures are fetched
-live with plain `httpx`, since they're one-off scripts rather than the reusable fetch module.
+Worked autonomously overnight per instructions. See `DECISIONS.md` for the one-line rationale behind every
+judgment call made along the way; commits are one per completed step, all pushed to
+`claude/tender-franklin-at8qn8`.
 
 ## Done
 
-(updated as steps complete)
+Everything in SPEC_MACRO.md §14's build order that doesn't require `agents-core` to be installable or live
+network access to `federalreserve.gov`/`api.stlouisfed.org` — which turned out to be almost everything
+except the final wiring:
 
-## Needed from agents-core
+- **Repo scaffolding**: multi-repo layout (`agents/macro/`, `config/`, `scripts/`, `evals/macro/`,
+  `docs/specs/`), uv-managed `pyproject.toml` (Python 3.12), `.env.example`.
+- **Config** (§2, §8): `config/macro.toml` with all 25 indicator blocks, `config/fomc_dates.toml` (fallback
+  calendar — **placeholder dates, see "Blockers"**), pydantic models in `agents/macro/config.py`.
+- **FRED fetch** (§3, §5.5): `fetch_fred.py` — series metadata, observations (`"."` → `None`), release-date
+  lookups, `last_updated` change detection. Takes an injected `get` callable rather than its own
+  retry/rate-limit/cache layer.
+- **`scripts/verify_macro_series.py`**: written and exercises its no-key failure path; **not run live**
+  (see "Blockers").
+- **Transforms, revisions, regimes, delayed-data, events** (§5.1-§5.6): fully real, fully tested, in
+  `transform.py`, `revisions.py`, `events.py`.
+- **FOMC processing** (§3, §5.7): `fetch_fed.py` (RSS parsing) and `fomc.py` (extraction, decision/vote
+  parsing incl. fractional ranges, pysbd+difflib sentence diff). Test fixtures are **hand-reconstructed**,
+  not live captures — see `tests/fixtures/fomc/README.md` and "Blockers".
+- **§6 output schema**: `schema.py` (pydantic), exported to `schemas/macro.schema.json`, validated against a
+  fixture matching the spec's own worked example.
+- **`templates.py`**: deterministic headline rendering and the guard-fallback template brief.
+- **`state.py`** (§4): `data/macro/state.json` read/write, 36-observation trimming, and the no-change path
+  (`has_series_changed` returning `False` is what lets a real runner skip both the fetch and the LLM call).
+- **`analyze.py`** (§7.1-§7.3): prompt building, `collect_facts` for the guard, `attach_citations` (code
+  attaches URLs, the model never does), `validate_tone_shift`, `filter_verbatim_key_phrases`. The actual LLM
+  call is behind an injected `guarded_call` matching `agents_core.llm.call_with_number_guard`'s expected
+  shape — ready to wire in, not yet wired.
+- **`pipeline.py`**: per-indicator glue (fetched series → computed values → new_release/revision/
+  threshold_cross events), the piece a real runner calls between fetch and analyze.
+- **Evals** (§11): `style_check.py` and `event_grounding.py` run for real (100% pass, 5/5 fixtures) against
+  the deterministic template brief. `labels_proposed.json`: 5 **real** historical FOMC meeting pairs with
+  proposed tone-shift labels, **PROVISIONAL** — see "Eval results" below.
+- **`.github/workflows/agent-macro.yml`** (§9): both crons + `workflow_dispatch`, calling
+  `Kghaffari26/agents-core/.github/workflows/run-agent.yml@main` with `agent=macro`, `max_run_usd=0.25`,
+  `site_repo=Kghaffari26/agents-hub`. **Won't run successfully yet** — see "Blockers".
+- **README.md, CLAUDE.md**: written and current.
+- **ruff**: clean. **Tests**: all passing.
 
-(filled in once the package is installed and gaps are found, or if the 4-hour window elapses first)
+## Not done / blocked
+
+- Actual `agents_core.agent.Agent` registration, `uv run agents-run macro [--dry-run]`, a real run, and the
+  `run-agent.yml` reusable workflow actually functioning — all wait on `agents-core`'s installable package
+  (see below).
+- Live FRED verification, live FOMC fixture capture, and confirming the proposed FOMC-tone labels against
+  real statement text — all wait on this environment's network policy (see below).
+- The real number-fidelity and phrase-verbatim evals (need a real LLM call).
 
 ## Test count
 
-TBD
+**215 tests passing**, `uv run ruff check .` clean. No live network calls anywhere in the suite (FRED and
+FOMC RSS/HTML are respx-mocked or fixture-based).
 
-## Provisional eval results
+## Eval results (provisional)
 
-TBD
+Full detail: `docs/agents/macro.md` and `evals/results/macro-2026-09-24.json`.
+
+| Eval | Status | Result |
+|---|---|---|
+| Event grounding | Ran (real) | 100% (5/5 fixtures) |
+| Style | Ran (real) | 100% (5/5 fixtures) |
+| Number fidelity | Blocked | needs a real LLM call |
+| Phrase verbatim | Blocked | needs a real LLM call |
+| FOMC tone | **Provisional** | 5 real historical pairs labeled from training-data knowledge, not verified against live text |
 
 ## Run cost
 
-TBD
+**$0.00.** No Anthropic API calls were made this session — every LLM-dependent path is gated on
+`agents-core` (see below), so there was nothing to spend against `MAX_RUN_USD`. Setting up the environment
+(`uv sync`) and the git/GitHub work made no billed API calls either.
 
 ## agents-core SHA pinned
 
-None yet — see above.
+**None.** Checked `Kghaffari26/agents-core` repeatedly (every commit to `main` between session start and
+now — currently `f79b6aa113857f34c5ac8c2381cc2f3064d4506e`, the only branch): it is still the old monorepo
+shape (`core/registry.py`, `core/guards.py`, `core/llm.py` at the repo root, hardcoded `AGENT_IDS` tuple,
+agents imported from `agents.<id>.agent` inside the *same* repo). No commit on any branch has
+`src/agents_core/guards.py` + `src/agents_core/registry.py` — the installable, entry-point-based shape this
+build needs. Its `run-agent.yml` reusable workflow also only accepts `agent`/`args` inputs today and checks
+out agents-core itself, not a calling repo — incompatible with the multi-repo `max_run_usd`/`site_repo`
+interface this build targets.
 
 ## Blockers
 
-- `agents-core` not yet in the installable shape (`src/agents_core/{guards,registry}.py`) required by the
-  multi-repo instructions. See "agents-core dependency" above.
-- **This environment's network policy blocks essentially all external hosts except GitHub, package
-  registries (PyPI/npm/etc.) and `api.anthropic.com`.** Confirmed by direct test: `api.stlouisfed.org`
-  (FRED) and `www.federalreserve.gov` both get a `403` at the egress proxy ("CONNECT tunnel failed"),
-  and so does `www.google.com` — this is a network allowlist, not a FRED-key problem (there's also no
-  `FRED_API_KEY` configured, which would matter too once the host is reachable). This blocks, completely,
-  in this environment:
-  - `scripts/verify_macro_series.py` running live against FRED
-  - recording real FRED response JSON as fixtures
-  - fetching the real FOMC RSS feed / statement pages / meeting calendar from federalreserve.gov
-  - the "≥3 real statement pages as HTML fixtures" requirement
-
-  **To unblock: broaden this environment's Network access (cloud environment menu → Edit) to allow
-  `api.stlouisfed.org` and `www.federalreserve.gov` (or a less restrictive access level), and add
-  `FRED_API_KEY` (free at https://fred.stlouisfed.org/docs/api/api_key.html) as an environment variable.**
-  Then re-run `uv run python scripts/verify_macro_series.py`, re-record the FOMC fixtures per the note in
-  `tests/fixtures/fomc/README.md`, and re-run the eval/real-run steps that depend on them.
-
-  Everything not gated on live network access proceeds fully: config models, transforms, revisions,
-  regimes, delayed-data detection, event detection, and FOMC decision/vote parsing + sentence diff are all
-  pure Python, real (not placeholder) implementations, tested against fixtures. Because I can't fetch real
-  FOMC statement HTML right now, the parsing/diff test fixtures are hand-written to faithfully match the
-  real page structure and real statement language patterns documented in the spec, but they are
-  **reconstructed, not live captures** — flagged clearly in `tests/fixtures/fomc/README.md` and must be
-  swapped for real captures once network access allows it. `api.anthropic.com` is reachable, so LLM-
-  dependent work is gated only on `agents-core`, not on network policy.
+1. **`agents-core` isn't installable yet in the multi-repo shape.** Blocks: wiring `analyze.py`'s LLM calls
+   for real, registering the agent with `agents_core.agents`, running `agents-run macro [--dry-run]`, a real
+   run, and `run-agent.yml` actually succeeding in CI.
+2. **This environment's network policy denies `api.stlouisfed.org` and `www.federalreserve.gov`** (confirmed
+   403 at the egress proxy on a direct test — also true for arbitrary hosts like `www.google.com`, so it's a
+   narrow allowlist, not something specific to these two hosts). There's also no `FRED_API_KEY` configured.
+   Blocks: `scripts/verify_macro_series.py` running live, recording real FRED/FOMC fixtures, and verifying
+   `config/fomc_dates.toml`'s placeholder meeting dates.
 
 ## Steps for the morning
 
-TBD — filled in as the picture becomes clear.
+1. **If `agents-core` is ready** (check with the same commands DECISIONS.md used, or just re-run the SHA
+   search across its branches for `src/agents_core/{guards,registry}.py`): read its README/CLAUDE.md, pin it
+   with `uv add "agents-core @ git+https://github.com/Kghaffari26/agents-core@<sha>"`, then:
+   - Wire `analyze.py`'s `guarded_call` parameter to `agents_core.llm.call_with_number_guard`.
+   - Add `agents/macro/agent.py` exposing `AGENT = Agent(id="macro", ...)` per `agents_core.agent`'s actual
+     base class, using `pipeline.compute_indicator_snapshot` per indicator and `state.py` for persistence.
+   - Confirm `.github/workflows/agent-macro.yml`'s `with:` block against agents-core's real `run-agent.yml`
+     inputs (it may not be `max_run_usd`/`site_repo` — check the actual reusable workflow file).
+   - Run `uv run agents-run macro --dry-run` and work through SPEC_MACRO.md §13's acceptance criteria.
+2. **Broaden this environment's (or a future one's) network access** to `api.stlouisfed.org` and
+   `www.federalreserve.gov`, and add a `FRED_API_KEY` (free) as an environment variable. Then:
+   - `uv run python scripts/verify_macro_series.py` and fix anything it flags.
+   - Fetch 3 real FOMC statement pages and replace `tests/fixtures/fomc/*.html` per that directory's
+     README — re-run `uv run pytest tests/test_fomc.py tests/test_fomc_diff.py` to confirm nothing broke.
+   - Verify `config/fomc_dates.toml` against `https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm`
+     and correct any wrong dates (only the Oct 27-28, 2026 meeting was taken from the spec's own example;
+     the rest are placeholders).
+   - Re-derive `evals/macro/labels_proposed.json`'s tone-shift labels from the real statement text for each
+     of the 5 pairs, and flip its `status` from `PROVISIONAL` once confirmed.
+3. Once both are unblocked, `uv run python evals/run_macro.py` again and update `docs/agents/macro.md`, then
+   do one real run and report its actual cost (should be well under `MAX_RUN_USD=0.25`, per SPEC_MACRO.md's
+   own ~$0.02-0.05/call estimates).
