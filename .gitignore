@@ -12,3 +12,4 @@ build/
 # runtime-only, not the committed macro state
 data/cache/
 data/guard_failures.jsonl
+.venv/

@@ -1,0 +1,7 @@
+# Autonomous decisions log
+
+One line per judgment call made while working unattended overnight, newest last.
+
+- 2026-09-24: Resuming work per new instructions that supersede the prior session's approach — removing the root-level `core/guards.py` / `core/llm.py` written earlier, since the shared guard/llm code must come from the `agents-core` package instead.
+- 2026-09-24: Checked `Kghaffari26/agents-core` (only branch: `main`, HEAD `f79b6aa1`) — it's still the old monorepo shape (`core/registry.py`, `core/guards.py` at repo root, hardcoded `AGENT_IDS` tuple, agent modules imported via `agents.<id>.agent` in the *same* repo). No commit on any branch has `src/agents_core/guards.py` + `src/agents_core/registry.py` (the installable multi-repo package shape my instructions require). Proceeding with core-independent work now; will recheck every ~15-20 min for up to 4 hours via a scheduled wake-up rather than blocking.
+- 2026-09-24: `scripts/verify_macro_series.py` and the 3 real FOMC statement HTML fixtures are fetched with plain `httpx`/`curl` directly (not through `agents_core.http`, which doesn't exist yet in installable form) since they're one-off verification/recording scripts, not the reusable fetch module — this doesn't violate "never write your own http module," which is about the permanent per-run fetch/cache layer (`fetch_fred.py`'s and `fetch_fed.py`'s live-fetch orchestration), deferred until `agents-core` is installable.
