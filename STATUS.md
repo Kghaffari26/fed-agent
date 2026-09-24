@@ -4,6 +4,13 @@ Worked autonomously overnight per instructions. See `DECISIONS.md` for the one-l
 judgment call made along the way; commits are one per completed step, all pushed to
 `claude/tender-franklin-at8qn8`.
 
+**Final update (09:15 UTC):** the 4-hour agents-core recheck window (started ~05:24 UTC) has closed.
+`Kghaffari26/agents-core@main` was checked roughly every 30 minutes throughout and never moved off commit
+`f79b6aa113857f34c5ac8c2381cc2f3064d4506e` — still the old monorepo shape, no `src/agents_core/{guards,
+registry}.py` on any branch. Per the original instructions, rechecking has stopped; nothing further is
+blocked on time, only on the two items under "Blockers" below. This file is the final handoff — everything
+else in the repo (215 tests, ruff clean, all commits pushed) reflects the complete state of overnight work.
+
 ## Done
 
 Everything in SPEC_MACRO.md §14's build order that doesn't require `agents-core` to be installable or live
