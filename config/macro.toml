@@ -1,0 +1,318 @@
+[settings]
+first_run_years = 11
+publish_series_years = 10
+summarize_minutes = true
+use_bls_fallback = false
+max_events_to_llm = 8
+
+# -- Inflation ---------------------------------------------------------------
+
+[[indicator]]
+id = "cpi"
+name = "CPI (all items)"
+group = "inflation"
+fred_series = "CPIAUCSL"
+frequency = "monthly"
+primary = "yoy_pct"
+secondary = ["mom_pct"]
+good_direction = "down"
+high_priority = true
+thresholds = [3.0, 2.5]
+
+[[indicator]]
+id = "core_cpi"
+name = "Core CPI"
+group = "inflation"
+fred_series = "CPILFESL"
+frequency = "monthly"
+primary = "yoy_pct"
+secondary = ["mom_pct", "ann_3m_pct"]
+good_direction = "down"
+high_priority = false
+thresholds = [3.0, 2.5]
+
+[[indicator]]
+id = "pce"
+name = "PCE price index"
+group = "inflation"
+fred_series = "PCEPI"
+frequency = "monthly"
+primary = "yoy_pct"
+secondary = []
+good_direction = "down"
+high_priority = false
+thresholds = [3.0, 2.5]
+
+[[indicator]]
+id = "core_pce"
+name = "Core PCE"
+group = "inflation"
+fred_series = "PCEPILFE"
+frequency = "monthly"
+primary = "yoy_pct"
+secondary = ["ann_3m_pct"]
+good_direction = "down"
+high_priority = true
+thresholds = [3.0, 2.5, 2.0]
+
+[[indicator]]
+id = "breakeven_5y"
+name = "5-yr breakeven inflation"
+group = "inflation"
+fred_series = "T5YIE"
+frequency = "daily"
+primary = "level"
+secondary = []
+good_direction = "neutral"
+high_priority = false
+thresholds = []
+
+# -- Labor --------------------------------------------------------------------
+
+[[indicator]]
+id = "unrate"
+name = "Unemployment rate"
+group = "labor"
+fred_series = "UNRATE"
+frequency = "monthly"
+primary = "level"
+secondary = ["change_pp"]
+good_direction = "down"
+high_priority = true
+thresholds = [4.0, 4.5, 5.0]
+
+[[indicator]]
+id = "payrolls"
+name = "Nonfarm payrolls"
+group = "labor"
+fred_series = "PAYEMS"
+frequency = "monthly"
+primary = "mom_diff"
+secondary = ["avg_3"]
+units_scale = "thousands"
+good_direction = "up"
+high_priority = true
+thresholds = []
+
+[[indicator]]
+id = "claims"
+name = "Initial jobless claims"
+group = "labor"
+fred_series = "ICSA"
+frequency = "weekly"
+primary = "level"
+secondary = ["avg_4w"]
+good_direction = "down"
+high_priority = false
+thresholds = []
+
+[[indicator]]
+id = "jolts"
+name = "Job openings (JOLTS)"
+group = "labor"
+fred_series = "JTSJOL"
+frequency = "monthly"
+primary = "level"
+secondary = []
+units_scale = "millions"
+good_direction = "neutral"
+high_priority = false
+thresholds = []
+
+[[indicator]]
+id = "ahe"
+name = "Average hourly earnings"
+group = "labor"
+fred_series = "CES0500000003"
+frequency = "monthly"
+primary = "yoy_pct"
+secondary = []
+good_direction = "neutral"
+high_priority = false
+thresholds = []
+
+# -- Growth ---------------------------------------------------------------
+
+[[indicator]]
+id = "gdp"
+name = "Real GDP growth"
+group = "growth"
+fred_series = "A191RL1Q225SBEA"
+frequency = "quarterly"
+primary = "level"
+secondary = []
+good_direction = "up"
+high_priority = true
+thresholds = [0.0]
+
+[[indicator]]
+id = "retail_sales"
+name = "Retail sales"
+group = "growth"
+fred_series = "RSAFS"
+frequency = "monthly"
+primary = "mom_pct"
+secondary = ["yoy_pct"]
+good_direction = "up"
+high_priority = false
+thresholds = []
+
+[[indicator]]
+id = "industrial_production"
+name = "Industrial production"
+group = "growth"
+fred_series = "INDPRO"
+frequency = "monthly"
+primary = "mom_pct"
+secondary = ["yoy_pct"]
+good_direction = "up"
+high_priority = false
+thresholds = []
+
+# -- Rates --------------------------------------------------------------------
+
+[[indicator]]
+id = "fed_funds_upper"
+name = "Fed funds target (upper)"
+group = "rates"
+fred_series = "DFEDTARU"
+frequency = "daily"
+primary = "level"
+secondary = []
+good_direction = "neutral"
+high_priority = false
+thresholds = []
+
+[[indicator]]
+id = "fed_funds_lower"
+name = "Fed funds target (lower)"
+group = "rates"
+fred_series = "DFEDTARL"
+frequency = "daily"
+primary = "level"
+secondary = []
+good_direction = "neutral"
+high_priority = false
+thresholds = []
+
+[[indicator]]
+id = "effr"
+name = "Effective fed funds rate"
+group = "rates"
+fred_series = "EFFR"
+frequency = "daily"
+primary = "level"
+secondary = []
+good_direction = "neutral"
+high_priority = false
+thresholds = []
+
+[[indicator]]
+id = "treasury_3m"
+name = "3M Treasury yield"
+group = "rates"
+fred_series = "DGS3MO"
+frequency = "daily"
+primary = "level"
+secondary = ["change_pp"]
+good_direction = "neutral"
+high_priority = false
+thresholds = []
+
+[[indicator]]
+id = "treasury_2y"
+name = "2Y Treasury yield"
+group = "rates"
+fred_series = "DGS2"
+frequency = "daily"
+primary = "level"
+secondary = ["change_pp"]
+good_direction = "neutral"
+high_priority = false
+thresholds = []
+
+[[indicator]]
+id = "treasury_5y"
+name = "5Y Treasury yield"
+group = "rates"
+fred_series = "DGS5"
+frequency = "daily"
+primary = "level"
+secondary = ["change_pp"]
+good_direction = "neutral"
+high_priority = false
+thresholds = []
+
+[[indicator]]
+id = "treasury_10y"
+name = "10Y Treasury yield"
+group = "rates"
+fred_series = "DGS10"
+frequency = "daily"
+primary = "level"
+secondary = ["change_pp"]
+good_direction = "neutral"
+high_priority = true
+thresholds = [4.0, 5.0]
+
+[[indicator]]
+id = "treasury_30y"
+name = "30Y Treasury yield"
+group = "rates"
+fred_series = "DGS30"
+frequency = "daily"
+primary = "level"
+secondary = ["change_pp"]
+good_direction = "neutral"
+high_priority = false
+thresholds = []
+
+[[indicator]]
+id = "curve_10y2y"
+name = "10Y-2Y spread"
+group = "rates"
+fred_series = "T10Y2Y"
+frequency = "daily"
+primary = "level"
+secondary = []
+good_direction = "neutral"
+high_priority = true
+thresholds = [0.0]
+
+[[indicator]]
+id = "curve_10y3m"
+name = "10Y-3M spread"
+group = "rates"
+fred_series = "T10Y3M"
+frequency = "daily"
+primary = "level"
+secondary = []
+good_direction = "neutral"
+high_priority = false
+thresholds = [0.0]
+
+[[indicator]]
+id = "mortgage_30y"
+name = "30-yr mortgage rate"
+group = "rates"
+fred_series = "MORTGAGE30US"
+frequency = "weekly"
+primary = "level"
+secondary = ["change_pp"]
+good_direction = "neutral"
+high_priority = false
+thresholds = []
+
+# -- Sentiment ------------------------------------------------------------
+
+[[indicator]]
+id = "umich_sentiment"
+name = "UMich consumer sentiment"
+group = "sentiment"
+fred_series = "UMCSENT"
+frequency = "monthly"
+primary = "level"
+secondary = ["change_pp"]
+good_direction = "up"
+high_priority = false
+thresholds = []

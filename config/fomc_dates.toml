@@ -1,0 +1,50 @@
+# Fallback FOMC meeting calendar, used only when the live parse of
+# https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm fails.
+# Maintained by hand once a year from that page.
+#
+# PLACEHOLDER — this environment's network policy blocks federalreserve.gov, so
+# these dates could not be verified live (see STATUS.md). Only the final
+# 2026-10-27/28 meeting is taken directly from the spec's own worked example
+# (SPEC_MACRO.md §8); the rest follow the FOMC's usual ~6-8 week cadence and
+# MUST be checked against the real calendar before this file is trusted in
+# production.
+
+[[meeting]]
+start = "2026-01-27"
+end = "2026-01-28"
+sep = false
+
+[[meeting]]
+start = "2026-03-17"
+end = "2026-03-18"
+sep = true
+
+[[meeting]]
+start = "2026-04-28"
+end = "2026-04-29"
+sep = false
+
+[[meeting]]
+start = "2026-06-16"
+end = "2026-06-17"
+sep = true
+
+[[meeting]]
+start = "2026-07-28"
+end = "2026-07-29"
+sep = false
+
+[[meeting]]
+start = "2026-09-15"
+end = "2026-09-16"
+sep = true
+
+[[meeting]]
+start = "2026-10-27"
+end = "2026-10-28"
+sep = false
+
+[[meeting]]
+start = "2026-12-08"
+end = "2026-12-09"
+sep = true
