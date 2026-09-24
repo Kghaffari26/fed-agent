@@ -1,0 +1,23 @@
+{
+  "scenario": "CPI day",
+  "as_of": "2026-09-11",
+  "context": {
+    "regimes": {"inflation": {"label": "Cooling", "detail": "Core PCE 2.8% YoY; 2.4% 3-mo annualized"}},
+    "fed_target_range": {"lower": 4.0, "upper": 4.25}
+  },
+  "events": [
+    {
+      "id": "new_release:cpi:2026-08",
+      "type": "new_release",
+      "priority": 80,
+      "facts": {"yoy": 2.9, "prior_yoy": 2.7, "mom": 0.3}
+    },
+    {
+      "id": "new_release:core_cpi:2026-08",
+      "type": "new_release",
+      "priority": 60,
+      "facts": {"yoy": 3.1, "prior_yoy": 3.1, "mom": 0.2}
+    }
+  ],
+  "top_priority_event_id": "new_release:cpi:2026-08"
+}

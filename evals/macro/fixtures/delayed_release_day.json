@@ -1,0 +1,17 @@
+{
+  "scenario": "Delayed-release day (e.g. a government shutdown)",
+  "as_of": "2026-10-05",
+  "context": {
+    "regimes": {},
+    "fed_target_range": {"lower": 4.0, "upper": 4.25}
+  },
+  "events": [
+    {
+      "id": "delayed:payrolls:2026-10-02",
+      "type": "delayed",
+      "priority": 40,
+      "facts": {"scheduled_release": "2026-10-02"}
+    }
+  ],
+  "top_priority_event_id": "delayed:payrolls:2026-10-02"
+}

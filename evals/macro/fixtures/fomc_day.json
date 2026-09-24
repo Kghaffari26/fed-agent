@@ -1,0 +1,17 @@
+{
+  "scenario": "FOMC day",
+  "as_of": "2026-09-16",
+  "context": {
+    "regimes": {"policy": {"label": "Cutting", "detail": "Target range 4.00-4.25%"}},
+    "fed_target_range": {"lower": 4.0, "upper": 4.25}
+  },
+  "events": [
+    {
+      "id": "fomc_decision:2026-09-16",
+      "type": "fomc_decision",
+      "priority": 100,
+      "facts": {"decision": "cut", "change_bp": -25, "target_range": {"lower": 4.0, "upper": 4.25}}
+    }
+  ],
+  "top_priority_event_id": "fomc_decision:2026-09-16"
+}

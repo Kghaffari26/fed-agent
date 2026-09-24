@@ -1,0 +1,114 @@
+{
+  "agent": "macro",
+  "run_at": "2026-09-24T05:59:15.459637+00:00",
+  "number_fidelity": {
+    "status": "blocked",
+    "reason": "needs a real LLM call through agents_core.llm, not installable yet (see STATUS.md)"
+  },
+  "event_grounding_and_style": {
+    "status": "ran",
+    "note": "Checks run against the deterministic TEMPLATE brief (no LLM call).",
+    "fixtures": [
+      {
+        "scenario": "CPI day",
+        "style_ok": true,
+        "style_violations": [],
+        "grounding_ok": true,
+        "grounding_unknown_event_ids": [],
+        "grounding_top_priority_covered": true
+      },
+      {
+        "scenario": "Delayed-release day (e.g. a government shutdown)",
+        "style_ok": true,
+        "style_violations": [],
+        "grounding_ok": true,
+        "grounding_unknown_event_ids": [],
+        "grounding_top_priority_covered": true
+      },
+      {
+        "scenario": "FOMC day",
+        "style_ok": true,
+        "style_violations": [],
+        "grounding_ok": true,
+        "grounding_unknown_event_ids": [],
+        "grounding_top_priority_covered": true
+      },
+      {
+        "scenario": "Jobs day with a big revision",
+        "style_ok": true,
+        "style_violations": [],
+        "grounding_ok": true,
+        "grounding_unknown_event_ids": [],
+        "grounding_top_priority_covered": true
+      },
+      {
+        "scenario": "Quiet day with 1 minor event",
+        "style_ok": true,
+        "style_violations": [],
+        "grounding_ok": true,
+        "grounding_unknown_event_ids": [],
+        "grounding_top_priority_covered": true
+      }
+    ],
+    "style_pass_rate": 1.0,
+    "grounding_pass_rate": 1.0,
+    "all_style_ok": true,
+    "all_grounding_ok": true
+  },
+  "fomc_tone": {
+    "status": "PROVISIONAL",
+    "note": "These are MY proposed tone-shift labels for real historical FOMC meeting pairs, for the \u00a711 'FOMC tone' eval (needs >=4 pairs: one cut, one hike, one hold with a notable language change, one near-identical pair). I could not fetch the real statement text to build fixtures from (federalreserve.gov is blocked by this environment's network policy \u2014 see STATUS.md), so these labels and their reasoning come from my own training-data knowledge of what actually happened at each meeting, not a re-read of the verbatim text. Treat the dates and decisions as reliable (they're well-documented public record); treat the specific wording quoted in `reasoning` as approximate recollection, not a verbatim quote. Before this eval is trusted: fetch the real statement pairs from https://www.federalreserve.gov/newsevents/pressreleases/monetaryYYYYMMDDa.htm for each date below, re-derive the diff with agents.macro.fomc.diff_statements, and confirm or correct these labels against the actual text.",
+    "pair_count": 5,
+    "pairs": [
+      {
+        "previous_date": "2024-07-31",
+        "new_date": "2024-09-18",
+        "decision": "cut",
+        "change_bp": -50,
+        "proposed_tone_shift": "more_dovish",
+        "reasoning": "The July 2024 statement held rates and described the labor market as gradually cooling while still emphasizing inflation risk. The September 2024 statement delivered the cycle's first cut, and a larger-than-typical 50bp move, with language acknowledging that job gains had slowed and the Committee had 'gained greater confidence' inflation was moving sustainably toward 2%. That combination (first cut, 50bp size, softer labor language) is a clear dovish shift.",
+        "confidence": "high on direction and decision size (public record); moderate on exact phrasing recalled"
+      },
+      {
+        "previous_date": "2022-03-16",
+        "new_date": "2022-05-04",
+        "decision": "hike",
+        "change_bp": 25,
+        "proposed_tone_shift": "more_hawkish",
+        "reasoning": "March 2022 was the first hike of that cycle (25bp) amid rising but not yet fully panicked inflation concern. By May 2022 inflation had continued to run hot and the Committee stepped up to a 50bp hike (the first of that size since 2000), with statement language explicitly framing the Committee as 'highly attentive to inflation risks.' Larger hike + more emphatic risk language reads as more hawkish.",
+        "confidence": "high on decision/size (public record); moderate on exact phrasing recalled"
+      },
+      {
+        "previous_date": "2023-12-13",
+        "new_date": "2024-01-31",
+        "decision": "hold",
+        "change_bp": 0,
+        "proposed_tone_shift": "more_hawkish",
+        "reasoning": "December 2023 was read as a dovish pivot: the statement (and the press conference) opened the door to cuts, and markets rallied hard on it. The January 2024 statement, while still a hold at the same rate, pushed back on the pace of easing by adding explicit language that the Committee 'does not expect it will be appropriate to reduce the target range until it has gained greater confidence' inflation is headed sustainably to 2% \u2014 a walk-back relative to December's more optimistic tone, not relative to some hawkish baseline.",
+        "confidence": "moderate \u2014 this pair is the most interpretation-dependent of the five; the 'shift' is relative to market read of December, not a change in the policy rate"
+      },
+      {
+        "previous_date": "2024-06-12",
+        "new_date": "2024-07-31",
+        "decision": "hold",
+        "change_bp": 0,
+        "proposed_tone_shift": "unchanged",
+        "reasoning": "Both meetings held the target range steady with very similar language about waiting for 'greater confidence' on inflation before easing; no major new language change I recall between these two consecutive holds. Included as the near-identical pair.",
+        "confidence": "moderate \u2014 recalled as materially similar statements, but exact sentence-level wording not verified"
+      },
+      {
+        "previous_date": "2024-09-18",
+        "new_date": "2024-11-07",
+        "decision": "cut",
+        "change_bp": -25,
+        "proposed_tone_shift": "unchanged",
+        "reasoning": "November 2024 continued the cutting cycle begun in September, but at the more typical 25bp pace and with broadly similar language reaffirming confidence in the inflation trajectory and a gradually cooling but solid labor market \u2014 a continuation of September's stance rather than a further shift in tone.",
+        "confidence": "moderate"
+      }
+    ]
+  },
+  "phrase_verbatim": {
+    "status": "blocked",
+    "reason": "needs a real FOMC-read LLM call through agents_core.llm, not installable yet"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "scenario": "Jobs day with a big revision",
+  "as_of": "2026-09-05",
+  "context": {
+    "regimes": {"labor": {"label": "Softening", "detail": "Unemployment 4.4%; payrolls 3-mo avg +61K"}},
+    "fed_target_range": {"lower": 4.0, "upper": 4.25}
+  },
+  "events": [
+    {
+      "id": "new_release:payrolls:2026-08",
+      "type": "new_release",
+      "priority": 80,
+      "facts": {"mom_diff": 71.0, "avg_3": 61.0}
+    },
+    {
+      "id": "revision:payrolls:2026-07",
+      "type": "revision",
+      "priority": 65,
+      "facts": {"period": "2026-07-01", "old": 73.0, "new": 41.0}
+    },
+    {
+      "id": "new_release:unrate:2026-08",
+      "type": "new_release",
+      "priority": 80,
+      "facts": {"level": 4.4, "change_pp": 0.1}
+    }
+  ],
+  "top_priority_event_id": "new_release:payrolls:2026-08"
+}
