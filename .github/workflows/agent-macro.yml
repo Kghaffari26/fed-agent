@@ -1,0 +1,35 @@
+# Runs the macro agent on its two SPEC_MACRO.md §9 schedules, via agents-core's
+# shared reusable workflow.
+#
+# NOTE: as of this writing, Kghaffari26/agents-core@main's run-agent.yml is
+# still the old monorepo-shaped reusable workflow (only `agent`/`args` inputs,
+# checks out agents-core itself rather than the calling repo — see STATUS.md
+# and DECISIONS.md). This file is written against the multi-repo interface
+# this build was instructed to target (agent, max_run_usd, site_repo inputs;
+# checkout of *this* repo). It will not run successfully until agents-core
+# publishes a run-agent.yml that supports being called from a separate agent
+# repo. Re-verify this file's `with:` block against agents-core's actual
+# reusable-workflow inputs once that lands.
+name: Macro agent
+
+on:
+  schedule:
+    # Weekdays 14:00 UTC: after the 8:30am ET release window in both EST and
+    # EDT, leaving time for FRED to update (§9).
+    - cron: "0 14 * * 1-5"
+    # Weekdays 19:30 UTC: FOMC statements are released 2:00pm ET. The run
+    # checks config/fomc_dates.toml / the live calendar and exits immediately
+    # (no fetch, no LLM) unless today is a decision day (§9).
+    - cron: "30 19 * * 1-5"
+  workflow_dispatch: {}
+
+jobs:
+  run:
+    uses: Kghaffari26/agents-core/.github/workflows/run-agent.yml@main
+    with:
+      agent: macro
+      max_run_usd: 0.25
+      site_repo: Kghaffari26/agents-hub
+    secrets:
+      FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
