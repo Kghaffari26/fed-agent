@@ -14,17 +14,20 @@ from __future__ import annotations
 
 import os
 import sys
+from datetime import date
 from pathlib import Path
 
-import httpx
+from agents_core.http import HostPolicy, Http
+from agents_core.settings import load_dotenv
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from agents.macro.config import DEFAULT_MACRO_TOML, load_macro_config  # noqa: E402
-from agents.macro.fetch_fred import fetch_observations, fetch_series_meta  # noqa: E402
+from agents.macro.fetch_fred import FRED_HOST, fetch_observations, fetch_series_meta  # noqa: E402
 
 
 def main() -> int:
+    load_dotenv()
     api_key = os.environ.get("FRED_API_KEY")
     if not api_key:
         print("FRED_API_KEY is not set in the environment.", file=sys.stderr)
@@ -33,11 +36,13 @@ def main() -> int:
     config = load_macro_config(DEFAULT_MACRO_TOML)
     failures: list[str] = []
 
-    with httpx.Client(timeout=15.0) as client:
+    recent = date.today().replace(year=date.today().year - 2).isoformat()
+    with Http() as http:
+        http.set_policy(FRED_HOST, HostPolicy(min_interval_seconds=0.5))
         for ind in config.indicators:
             try:
-                meta = fetch_series_meta(client.get, ind.fred_series, api_key)
-                obs = fetch_observations(client.get, ind.fred_series, api_key)
+                meta = fetch_series_meta(http, ind.fred_series, api_key)
+                obs = fetch_observations(http, ind.fred_series, api_key, observation_start=recent)
                 last = next((o for o in reversed(obs) if o.value is not None), None)
                 last_str = f"{last.date} = {last.value}" if last else "no non-missing observations"
                 print(

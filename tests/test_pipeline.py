@@ -31,6 +31,8 @@ PAYROLLS = IndicatorConfig(
     primary="mom_diff",
     secondary=["avg_3"],
     units_scale="thousands",
+    units="thousands",
+    level_decimals=0,
     good_direction="up",
     high_priority=True,
     thresholds=[],
@@ -72,22 +74,66 @@ def test_no_new_release_event_when_period_already_stored():
     assert [e for e in snapshot.events if e.type == "new_release"] == []
 
 
-def test_revision_event_detected_and_surfaced():
-    series = _monthly([100.0, 101.0])
-    stored = {series[0].date.isoformat(): 100.0, series[1].date.isoformat(): 90.0}  # was 90, now 101
-    snapshot = compute_indicator_snapshot(PAYROLLS, series, stored_observations=stored)
-    revision_events = [e for e in snapshot.events if e.type == "revision"]
-    assert len(revision_events) == 1
-    assert revision_events[0].facts["old"] == 90.0
-    assert revision_events[0].facts["new"] == 101.0
+def _payroll_levels(changes, start_level=159000.0, start=date(2026, 4, 1)):
+    levels, level = [start_level], start_level
+    for change in changes:
+        level += change
+        levels.append(level)
+    return _monthly(levels, start=start)
 
 
-def test_payroll_revision_flagged_as_payrolls_for_priority_bonus():
-    series = _monthly([100.0, 200.0])  # |diff|=100 > 50K bonus threshold
-    stored = {series[0].date.isoformat(): 100.0, series[1].date.isoformat(): 90.0}
-    snapshot = compute_indicator_snapshot(PAYROLLS, series, stored_observations=stored)
-    revision_events = [e for e in snapshot.events if e.type == "revision"]
-    assert revision_events[0].priority == 50 + 15
+def test_payroll_revision_reported_as_the_monthly_change():
+    # §13 acceptance case: "Jul revised from +73K to +41K".
+    stored_series = _payroll_levels([30, 21, 73])  # Apr level, then May/Jun/Jul changes
+    stored = {o.date.isoformat(): o.value for o in stored_series}
+    new_series = _payroll_levels([30, 21, 41, 59])  # Jul revised down, Aug is new
+    snapshot = compute_indicator_snapshot(PAYROLLS, new_series, stored_observations=stored)
+
+    revisions = [e for e in snapshot.events if e.type == "revision"]
+    assert len(revisions) == 1
+    assert revisions[0].id == "revision:payrolls:2026-07-01"
+    assert revisions[0].facts["old"] == 73
+    assert revisions[0].facts["new"] == 41
+    assert revisions[0].facts["units"] == "thousands"
+    assert revisions[0].priority == 50  # |41 - 73| = 32K, under the 50K bonus threshold
+    assert snapshot.revisions[-1].old == 73 and snapshot.revisions[-1].new == 41
+
+    new_release = next(e for e in snapshot.events if e.type == "new_release")
+    assert new_release.facts["mom_diff"] == 59
+    assert new_release.facts["prior_mom_diff"] == 41
+    assert new_release.facts["avg_3"] == round((21 + 41 + 59) / 3)  # 3-mo avg *change*
+
+
+def test_payroll_revision_over_50k_gets_priority_bonus():
+    stored = {o.date.isoformat(): o.value for o in _payroll_levels([30, 21, 173])}
+    snapshot = compute_indicator_snapshot(
+        PAYROLLS, _payroll_levels([30, 21, 41, 59]), stored_observations=stored
+    )
+    revision = next(e for e in snapshot.events if e.type == "revision")
+    assert revision.priority == 50 + 15
+
+
+def test_float_noise_below_epsilon_is_not_a_revision():
+    stored = {o.date.isoformat(): o.value for o in _payroll_levels([30, 21, 73])}
+    new = _payroll_levels([30, 21, 73.4, 59])
+    snapshot = compute_indicator_snapshot(PAYROLLS, new, stored_observations=stored)
+    assert [e for e in snapshot.events if e.type == "revision"] == []
+
+
+def test_not_updated_series_emits_no_events():
+    series = _monthly([100.0 + i for i in range(13)])
+    snapshot = compute_indicator_snapshot(CPI, series, stored_observations={}, updated=False)
+    assert snapshot.events == []
+    assert snapshot.primary is not None
+
+
+def test_new_release_facts_are_rounded_to_published_precision():
+    series = _monthly([100.0 + i * 0.3 for i in range(14)])
+    snapshot = compute_indicator_snapshot(CPI, series, stored_observations={})
+    facts = next(e for e in snapshot.events if e.type == "new_release").facts
+    assert facts["yoy"] == round(snapshot.primary, 1)
+    assert facts["prior_yoy"] == round(snapshot.prior_primary, 1)
+    assert facts["units"] == "percent"
 
 
 def test_threshold_cross_detected_across_the_latest_period():

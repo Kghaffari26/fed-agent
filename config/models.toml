@@ -1,0 +1,9 @@
+# Overrides for agents-core's shipped config/models.toml (deep-merged over it — see
+# agents_core.settings.load_config). Only what differs from the package default.
+#
+# SPEC_MACRO.md §7.1 caps the brief/FOMC read at 800 output tokens and the minutes
+# summary at 1,000. claude-sonnet-5 runs adaptive thinking when `thinking` is
+# omitted, and thinking tokens count toward max_tokens, so leave it on and a short
+# cap truncates the JSON. These are short, fully-specified writing tasks: thinking off.
+[tiers.smart]
+thinking = "disabled"

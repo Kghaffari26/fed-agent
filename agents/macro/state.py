@@ -1,10 +1,20 @@
-"""Read/write data/macro/state.json (§4). Committed, not published to the site."""
+"""Read/write data/macro/state.json (§4). Committed, not published to the site.
+
+Besides the §4 fields (per-series `last_updated` + last 36 observations, FOMC
+dates, the last brief), state carries what a no-change run needs to republish
+without calling the LLM: the full last FOMC block and minutes block (their LLM
+reads included), the last headline, regime labels and delayed flags (so
+`regime_change`/`delayed` events fire once, on the transition), and the §3
+30-day `series/release` cache. It lives in git rather than the publish dir because
+agents-core's run-agent.yml commits `data/` back but does not restore `public-data/`.
+"""
 
 from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from agents.macro.fetch_fred import Observation
 
@@ -29,11 +39,17 @@ class SeriesState:
 class FomcState:
     latest_statement_date: str | None = None
     latest_minutes_date: str | None = None
+    # The published `fomc.latest` / `fomc.minutes` blocks (schema.FomcLatest /
+    # FomcMinutesOut as JSON), reused verbatim until a newer statement/minutes appears.
+    latest: dict[str, Any] | None = None
+    minutes: dict[str, Any] | None = None
 
     def to_dict(self) -> dict:
         return {
             "latest_statement_date": self.latest_statement_date,
             "latest_minutes_date": self.latest_minutes_date,
+            "latest": self.latest,
+            "minutes": self.minutes,
         }
 
     @classmethod
@@ -41,21 +57,61 @@ class FomcState:
         return cls(
             latest_statement_date=raw.get("latest_statement_date"),
             latest_minutes_date=raw.get("latest_minutes_date"),
+            latest=raw.get("latest"),
+            minutes=raw.get("minutes"),
         )
 
 
 @dataclass
 class LastBrief:
     run_id: str
-    bullets: list[str]
+    bullets: list[dict[str, Any]]  # schema.BriefBullet as JSON
     event_ids: list[str]
+    narrative_source: str = "template"
+    model: str | None = None
+    generated_at: str | None = None
+    headline: str | None = None
 
     def to_dict(self) -> dict:
-        return {"run_id": self.run_id, "bullets": self.bullets, "event_ids": self.event_ids}
+        return {
+            "run_id": self.run_id,
+            "bullets": self.bullets,
+            "event_ids": self.event_ids,
+            "narrative_source": self.narrative_source,
+            "model": self.model,
+            "generated_at": self.generated_at,
+            "headline": self.headline,
+        }
 
     @classmethod
     def from_dict(cls, raw: dict) -> LastBrief:
-        return cls(run_id=raw["run_id"], bullets=raw.get("bullets", []), event_ids=raw.get("event_ids", []))
+        bullets = [b if isinstance(b, dict) else {"text": b, "event_ids": []} for b in raw.get("bullets", [])]
+        return cls(
+            run_id=raw["run_id"],
+            bullets=bullets,
+            event_ids=raw.get("event_ids", []),
+            narrative_source=raw.get("narrative_source", "template"),
+            model=raw.get("model"),
+            generated_at=raw.get("generated_at"),
+            headline=raw.get("headline"),
+        )
+
+
+@dataclass
+class ReleaseState:
+    release_id: str
+    name: str
+    fetched_on: str  # ISO date; refreshed after RELEASE_CACHE_DAYS
+
+    def to_dict(self) -> dict:
+        return {"release_id": self.release_id, "name": self.name, "fetched_on": self.fetched_on}
+
+    @classmethod
+    def from_dict(cls, raw: dict) -> ReleaseState:
+        return cls(release_id=str(raw["release_id"]), name=raw["name"], fetched_on=raw["fetched_on"])
+
+
+RELEASE_CACHE_DAYS = 30
 
 
 @dataclass
@@ -63,21 +119,35 @@ class MacroState:
     series: dict[str, SeriesState] = field(default_factory=dict)
     fomc: FomcState = field(default_factory=FomcState)
     last_brief: LastBrief | None = None
+    regimes: dict[str, str] = field(default_factory=dict)
+    delayed: list[str] = field(default_factory=list)  # indicator ids flagged delayed last run
+    releases: dict[str, ReleaseState] = field(default_factory=dict)  # by FRED series id
 
     def to_dict(self) -> dict:
         return {
-            "series": {sid: s.to_dict() for sid, s in self.series.items()},
+            "series": {sid: s.to_dict() for sid, s in sorted(self.series.items())},
             "fomc": self.fomc.to_dict(),
             "last_brief": self.last_brief.to_dict() if self.last_brief else None,
+            "regimes": dict(sorted(self.regimes.items())),
+            "delayed": sorted(self.delayed),
+            "releases": {sid: r.to_dict() for sid, r in sorted(self.releases.items())},
         }
 
     @classmethod
     def from_dict(cls, raw: dict) -> MacroState:
         series = {sid: SeriesState.from_dict(v) for sid, v in raw.get("series", {}).items()}
-        fomc = FomcState.from_dict(raw.get("fomc", {}))
+        fomc = FomcState.from_dict(raw.get("fomc") or {})
         last_brief_raw = raw.get("last_brief")
         last_brief = LastBrief.from_dict(last_brief_raw) if last_brief_raw else None
-        return cls(series=series, fomc=fomc, last_brief=last_brief)
+        releases = {sid: ReleaseState.from_dict(v) for sid, v in (raw.get("releases") or {}).items()}
+        return cls(
+            series=series,
+            fomc=fomc,
+            last_brief=last_brief,
+            regimes=dict(raw.get("regimes") or {}),
+            delayed=list(raw.get("delayed") or []),
+            releases=releases,
+        )
 
     def series_last_updated(self, series_id: str) -> str | None:
         stored = self.series.get(series_id)
@@ -92,7 +162,9 @@ def load_state(path: Path = DEFAULT_STATE_PATH) -> MacroState:
 
 def save_state(state: MacroState, path: Path = DEFAULT_STATE_PATH) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(state.to_dict(), indent=2, sort_keys=True) + "\n")
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(json.dumps(state.to_dict(), indent=2, sort_keys=True, ensure_ascii=False) + "\n")
+    tmp.replace(path)
 
 
 def trim_observations(observations: dict[str, float | None], *, keep: int = MAX_STORED_OBSERVATIONS) -> dict:

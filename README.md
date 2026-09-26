@@ -21,25 +21,27 @@ Every weekday morning (and again on FOMC decision afternoons), it:
    hold/cut/hike decision and any dissents, and has the model explain the tone shift — again with every
    quoted phrase checked verbatim against the real statement text.
 
-### Sample output shape (see SPEC_MACRO.md §6 for the full schema)
+### Sample output (from the real run on 2026-09-26)
 
 ```json
 {
-  "headline": "August CPI rose 2.9% YoY (prior 2.7%); core PCE 3-mo annualized cooled to 2.4%.",
+  "headline": "The FOMC raised rates to 3.75–4.00%.",
   "regimes": {
-    "inflation": {"label": "Cooling", "detail": "Core PCE 2.8% YoY; 2.4% 3-mo annualized"},
-    "policy": {"label": "Holding", "detail": "Target range 4.00-4.25%"}
+    "inflation": {"label": "Steady", "detail": "Core PCE 3.3% YoY; 3.0% 3-mo annualized"},
+    "policy": {"label": "Hiking", "detail": "Target range 3.75–4.00%"}
   },
   "brief": {
     "bullets": [{
-      "text": "Headline CPI rose to 2.9% YoY in August from 2.7%, while core CPI held at 3.1%.",
-      "event_ids": ["new_release:CPIAUCSL:2026-08"],
-      "citations": [{"name": "FRED: CPIAUCSL", "url": "https://fred.stlouisfed.org/series/CPIAUCSL"}]
+      "text": "CPI rose 3.4% year-over-year in August 2026, up from a prior 3.3%, with a monthly increase of 0.4%.",
+      "event_ids": ["new_release:cpi:2026-08-01"],
+      "citations": [{"name": "FRED: cpi", "url": "https://fred.stlouisfed.org/series/CPIAUCSL"}]
     }],
     "narrative_source": "llm"
   }
 }
 ```
+
+See SPEC_MACRO.md §6 for the full shape; `schemas/macro.schema.json` is the exported JSON Schema.
 
 ## How it works
 
@@ -60,33 +62,45 @@ FRED, Fed   pure Python    pure Python        LLM (smart)      number guard
 
 ## Costs
 
-Budgeted at **$0.30-0.50/month** at the normal cadence (SPEC_MACRO.md §12): ~$0.02 for a what-changed brief
-(~12 change-days/month), ~$0.02 for an FOMC read (~0.7/month), ~$0.05 for a minutes summary (~0.7/month).
-`MAX_RUN_USD=0.25` caps any single run.
+Measured: the first real run (brief + FOMC read + minutes summary, i.e. a worst-case day) cost **$0.048**;
+an immediate re-run cost **$0.00** (zero LLM calls). A normal release day is the brief alone, ~$0.008.
+Budgeted at $0.30-0.50/month (SPEC_MACRO.md §12). `max_run_usd: 0.25` caps any single run.
 
-## Setup
+## Running it
+
+`agents-core` (the shared framework: HTTP, LLM, number guard, costs, publishing, runner) is a dependency
+pinned to `v0.1.0`. This repo registers the agent through the `agents_core.agents` entry point, so:
 
 ```bash
-cp .env.example .env   # fill in FRED_API_KEY (free) and ANTHROPIC_API_KEY
+cp .env.example .env   # FRED_API_KEY (free) and ANTHROPIC_API_KEY (or AGENTS_ANTHROPIC_API_KEY)
 uv sync
-uv run pytest
-uv run python scripts/verify_macro_series.py   # confirms every configured FRED series resolves
+uv run agents-run macro --dry-run   # fetch + compute; prints indicators, regimes, events. No LLM, no publish.
+uv run agents-run macro             # full run: publishes to public-data/, updates data/
+uv run pytest                        # 284 tests, no network
+uv run python scripts/verify_macro_series.py   # confirms every configured FRED series resolves (live)
+uv run python evals/run_macro.py     # §11 evals; real LLM calls, capped at $0.20
 ```
+
+A run writes the agents-core data-branch contract to `public-data/` (`latest.json`, `history/`,
+`manifest-entry.json`, `costs-summary.json`, `schema.json`) and its own state to `data/`
+(`macro/state.json`, `costs.jsonl`, `guard_failures.jsonl`). In CI, `.github/workflows/agent-macro.yml`
+calls agents-core's reusable `run-agent.yml`, which commits `data/` back and force-pushes `public-data/` to
+this repo's `data` branch.
 
 ## Repo layout
 
 ```
-agents/macro/     # config, fetch_fred, fetch_fed, transform, revisions, events, fomc, analyze,
-                   # templates, schema, state, pipeline
-config/            # macro.toml (indicators), fomc_dates.toml (fallback calendar)
-scripts/           # verify_macro_series.py, export_schema.py
-evals/macro/       # style/event-grounding checks, scenario fixtures, proposed FOMC-tone labels
-tests/             # unit tests + fixtures (FRED response shapes, FOMC statement HTML, RSS feed)
-docs/specs/        # SPEC_MACRO.md, the build spec
+agents/macro/     # agent.py (the agents-core Agent), config, fetch_fred, fetch_fed, fomc, transform,
+                  # revisions, events, pipeline, build, display, analyze, templates, schema, state
+config/           # macro.toml (indicators), fomc_dates.toml (fallback calendar), models.toml (tier override)
+scripts/          # verify_macro_series.py, export_schema.py, fomc_gate.py (workflow gate)
+evals/            # run_macro.py, scenario fixtures, real FOMC statement pairs + tone labels, results/
+tests/            # unit + end-to-end tests; real FRED/federalreserve.gov responses as fixtures
+data/             # committed run state (state.json, costs.jsonl, guard_failures.jsonl)
+docs/             # specs/SPEC_MACRO.md (the build spec), agents/macro.md (eval summary)
 ```
 
 ## Status
 
-See [`STATUS.md`](STATUS.md) for exactly what's done, what's blocked and why (this environment's network
-policy and a pending `agents-core` dependency — both explained there), test counts, eval results, and the
-concrete next steps.
+See [`STATUS.md`](STATUS.md) for what's done, test count, measured run cost, eval results, and the few
+things that need doing by hand (repository secrets and Actions settings).

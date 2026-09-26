@@ -9,7 +9,10 @@ dist/
 build/
 .env
 
-# runtime-only, not the committed macro state
+# runtime-only: agents_core's HTTP cache and this agent's full observation history
+# (.cache/macro/), persisted between CI runs with actions/cache instead of git.
+# data/ (state.json, costs.jsonl, guard_failures.jsonl) IS committed, per the
+# agents-core run-agent.yml contract. public-data/ is published to the `data` branch.
+.cache/
 data/cache/
-data/guard_failures.jsonl
-.venv/
+public-data/

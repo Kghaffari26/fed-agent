@@ -19,19 +19,38 @@ SENTENCE_MODIFIED_RATIO_THRESHOLD = 0.6
 _FRACTIONS = {"1/4": 0.25, "1/2": 0.5, "3/4": 0.75}
 
 _DECISION_RE = re.compile(
-    r"(maintain|lower|raise)\s+the target range for the federal funds rate\s+(?:at|to)\s+"
+    r"(maintain|lower|raise)\s+the target range for the federal funds rate\s+"
+    r"(?:by\s+([\d/.]+)\s+percentage points?\s+)?(?:at|to)\s+"
     r"([\d/\-]+)\s+to\s+([\d/\-]+)\s+percent",
     re.IGNORECASE,
 )
 _DECISION_MAP = {"maintain": "hold", "lower": "cut", "raise": "hike"}
 
 _NUMBER_WORDS = {
-    "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
-    "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12,
+    "one": 1,
+    "two": 2,
+    "three": 3,
+    "four": 4,
+    "five": 5,
+    "six": 6,
+    "seven": 7,
+    "eight": 8,
+    "nine": 9,
+    "ten": 10,
+    "eleven": 11,
+    "twelve": 12,
 }
 
 _FOR_RE = re.compile(r"Voting for the monetary policy action (?:was|were) (.+?)(?<!\b[A-Z])\.(?:\s|$)")
-_AGAINST_RE = re.compile(r"Voting against this action (?:was|were) (.+?), who preferred (.+?)\.")
+_AGAINST_RE = re.compile(
+    r"Voting against (?:this|the monetary policy) action (?:was|were) (.+?), who preferred (.+?)\.(?:\s|$)"
+)
+# Since 2026 the Fed prefaces the statement with "...approved the following statement for
+# release by a 9 – 3 vote:" and lists only the dissenters by name.
+_VOTE_TALLY_RE = re.compile(r"by an? (\d+)\s*[–—-]\s*(\d+) vote")
+_PREFACE_RE = re.compile(r"^The Federal Open Market Committee approved the following statement")
+_SKIP_CLASSES = {"article__time", "releaseTime"}
+_FOOTNOTE_RE = re.compile(r"^\d+\.\s.*Return to text$", re.DOTALL)
 _OTHER_MEMBERS_RE = re.compile(r"^and\s+(\w+)\s+other members?$", re.IGNORECASE)
 
 
@@ -67,6 +86,19 @@ class Change:
 # --------------------------------------------------------------------------
 
 
+def normalize_text(text: str) -> str:
+    """Collapse whitespace and fold the non-breaking hyphens/spaces the Fed's pages use
+    ("1\u20111/2", "mortgage\u2011backed") into plain ASCII so regexes and diffs see one form."""
+    text = text.replace("\u2011", "-").replace("\u2010", "-").replace("\xa0", " ")
+    return " ".join(text.split())
+
+
+def _is_link_only(node) -> bool:
+    """Paragraphs that are just a link ("Implementation Note issued ...")."""
+    links = "".join(a.text() for a in node.css("a"))
+    return bool(links.strip()) and normalize_text(links) == normalize_text(node.text())
+
+
 def extract_statement(html: str) -> ExtractedStatement:
     tree = HTMLParser(html)
     article = tree.css_first("div#article")
@@ -74,19 +106,38 @@ def extract_statement(html: str) -> ExtractedStatement:
         return ExtractedStatement(policy_text="", voting_text="")
 
     policy_parts: list[str] = []
-    voting_text = ""
+    voting_parts: list[str] = []
     for node in article.css("p"):
-        text = node.text(strip=True)
-        if not text:
+        classes = set((node.attributes.get("class") or "").split())
+        if classes & _SKIP_CLASSES:
             continue
-        if text.startswith("Implementation Note"):
+        # text() without strip: stripping each text node glues words around inline tags
+        # ("percentage point<strong> </strong>to" -> "pointto").
+        text = normalize_text(node.text())
+        if not text or _is_link_only(node):
             continue
-        if text.startswith("Voting for"):
-            voting_text = text
+        if text.startswith(("Implementation Note", "For media inquiries")):
+            continue
+        if text.startswith(("Voting for", "Voting against")) or _PREFACE_RE.match(text):
+            voting_parts.append(text)
             continue
         policy_parts.append(text)
 
-    return ExtractedStatement(policy_text=" ".join(policy_parts), voting_text=voting_text)
+    return ExtractedStatement(policy_text=" ".join(policy_parts), voting_text=" ".join(voting_parts))
+
+
+def extract_minutes(html: str) -> str:
+    """Minutes body text (§5.7 step 6): every article paragraph except footnotes."""
+    tree = HTMLParser(html)
+    article = tree.css_first("div#article")
+    if article is None:
+        return ""
+    parts = []
+    for node in article.css("p"):
+        text = normalize_text(node.text())
+        if text and not _FOOTNOTE_RE.match(text):
+            parts.append(text)
+    return "\n\n".join(parts)
 
 
 def is_extraction_valid(statement: ExtractedStatement) -> bool:
@@ -100,7 +151,11 @@ def is_extraction_valid(statement: ExtractedStatement) -> bool:
 
 
 def _parse_rate_number(token: str) -> float:
-    match = re.match(r"^(\d+)(?:-(\d+/\d+))?$", token.strip())
+    """ "4", "4-1/4" or a bare fraction like "3/4" (the 2022 "3/4 to 1 percent" range)."""
+    token = token.strip()
+    if token in _FRACTIONS:
+        return _FRACTIONS[token]
+    match = re.match(r"^(\d+)(?:-(\d+/\d+))?$", token)
     if not match:
         raise ValueError(f"unparseable rate number: {token!r}")
     whole = float(match.group(1))
@@ -108,19 +163,34 @@ def _parse_rate_number(token: str) -> float:
     return whole + frac
 
 
+def _parse_step_pp(token: str) -> float:
+    """The "by 1/4 percentage point" step: a fraction or a decimal."""
+    token = token.strip()
+    if token in _FRACTIONS:
+        return _FRACTIONS[token]
+    return float(token)
+
+
 def parse_decision(policy_text: str, previous_range: dict[str, float] | None = None) -> Decision:
+    """change_bp comes from the previous statement's range when given; otherwise from the
+    statement's own "by 1/4 percentage point" wording (zero for a hold), else None."""
     match = _DECISION_RE.search(policy_text)
     if not match:
         raise ValueError("could not find a target-range decision sentence in policy_text")
-    verb, lower_token, upper_token = match.groups()
+    verb, step_token, lower_token, upper_token = match.groups()
     lower = _parse_rate_number(lower_token)
     upper = _parse_rate_number(upper_token)
-    change_bp = round((lower - previous_range["lower"]) * 100) if previous_range else None
-    return Decision(
-        decision=_DECISION_MAP[verb.lower()],
-        target_range={"lower": lower, "upper": upper},
-        change_bp=change_bp,
-    )
+    decision = _DECISION_MAP[verb.lower()]
+    if previous_range:
+        change_bp = round((lower - previous_range["lower"]) * 100)
+    elif decision == "hold":
+        change_bp = 0
+    elif step_token:
+        step_bp = round(_parse_step_pp(step_token) * 100)
+        change_bp = -step_bp if decision == "cut" else step_bp
+    else:
+        change_bp = None
+    return Decision(decision=decision, target_range={"lower": lower, "upper": upper}, change_bp=change_bp)
 
 
 # --------------------------------------------------------------------------
@@ -153,8 +223,11 @@ def _count_for_votes(segment: str) -> int:
 def parse_votes(voting_text: str) -> Votes:
     for_count = 0
     for_match = _FOR_RE.search(voting_text)
+    tally_match = _VOTE_TALLY_RE.search(voting_text)
     if for_match:
         for_count = _count_for_votes(for_match.group(1))
+    elif tally_match:
+        for_count = int(tally_match.group(1))
 
     against: list[dict[str, str]] = []
     against_match = _AGAINST_RE.search(voting_text)

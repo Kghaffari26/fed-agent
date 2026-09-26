@@ -1,24 +1,24 @@
 """Pydantic output models — the site contract (§6).
 
-This is the source of truth for `site/public/data/macro/latest.json`,
-exported to `schemas/macro.schema.json` by `scripts/export_schema.py`.
+`MacroOutput` is the source of truth for `latest.json`. It subclasses
+`agents_core.schema.AgentOutput`, so `meta` is agents-core's shared `RunMeta` (the
+SPEC_WEBSITE §3 meta block: run_id, status, data_changed, cost, sources...), filled in
+by the agents-core runner, and `key_stats` uses agents-core's `KeyStat` (the same
+model as `manifest-entry.json`). Every other block keeps SPEC_MACRO.md §6's shape.
 
-`Meta` is a minimal stand-in for the shared meta block described in
-SPEC_WEBSITE.md §3 (a spec for the website repo, not available here — see
-DECISIONS.md). Once agents_core.schema provides the real shared `RunMeta`,
-swap this for it; the field names below were chosen to match what §6 and
-§10 of SPEC_MACRO.md reference directly (`meta.data_changed`,
-`meta.status`).
+The runner publishes `schema.json` next to `latest.json` automatically; the
+committed `schemas/macro.schema.json` snapshot is regenerated with
+`uv run python scripts/export_schema.py`.
 """
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date
 from typing import Literal
 
+from agents_core.schema import AgentOutput, KeyStat, Timestamp
 from pydantic import BaseModel, Field
 
-Status = Literal["ok", "failed"]
 NarrativeSource = Literal["llm", "template"]
 ToneShift = Literal["more_hawkish", "unchanged", "more_dovish"]
 FomcDecisionKind = Literal["hold", "cut", "hike"]
@@ -26,22 +26,7 @@ ChangeType = Literal["added", "removed", "modified"]
 GoodDirection = Literal["up", "down", "neutral"]
 RegimeLabel = str  # see agents.macro.transform for the literal labels per regime
 
-
-class Meta(BaseModel):
-    run_id: str
-    generated_at: datetime
-    status: Status
-    data_changed: bool
-    warnings: list[str] = Field(default_factory=list)
-
-
-class KeyStat(BaseModel):
-    label: str
-    value: float
-    format: str
-    delta: float | None = None
-    delta_format: str | None = None
-    good_direction: GoodDirection
+__all__ = ["KeyStat", "MacroOutput"]
 
 
 class Regime(BaseModel):
@@ -72,7 +57,7 @@ class Brief(BaseModel):
     bullets: list[BriefBullet]
     narrative_source: NarrativeSource
     model: str | None = None
-    generated_at: datetime
+    generated_at: Timestamp
     reused_from_run_id: str | None = None
 
 
@@ -113,6 +98,8 @@ class IndicatorOutput(BaseModel):
     released_at: date | None = None
     next_release: date | None = None
     delayed: bool = False
+    # §10: FRED failed for this series this run; the values are the last good ones.
+    stale: bool = False
     revision: RevisionBlock | None = None
     spark: SeriesData
     series: SeriesData
@@ -225,8 +212,7 @@ class EventOut(BaseModel):
     facts: dict = Field(default_factory=dict)
 
 
-class MacroOutput(BaseModel):
-    meta: Meta
+class MacroOutput(AgentOutput):
     headline: str
     key_stats: list[KeyStat]
     regimes: Regimes

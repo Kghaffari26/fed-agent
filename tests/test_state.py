@@ -33,7 +33,7 @@ def test_save_and_load_round_trip(tmp_path):
         fomc=FomcState(latest_statement_date="2026-09-16", latest_minutes_date="2026-08-20"),
         last_brief=LastBrief(
             run_id="run-1",
-            bullets=["CPI rose 2.9%."],
+            bullets=[{"text": "CPI rose 2.9%.", "event_ids": ["new_release:cpi:2026-08"], "citations": []}],
             event_ids=["new_release:CPIAUCSL:2026-08"],
         ),
     )
@@ -52,8 +52,9 @@ def test_save_state_matches_spec_json_shape(tmp_path):
     )
     save_state(state, path)
     raw = json.loads(path.read_text())
-    assert set(raw.keys()) == {"series", "fomc", "last_brief"}
-    assert set(raw["fomc"].keys()) == {"latest_statement_date", "latest_minutes_date"}
+    assert {"series", "fomc", "last_brief"} <= set(raw.keys())
+    assert {"latest_statement_date", "latest_minutes_date"} <= set(raw["fomc"].keys())
+    assert raw["series"]["PAYEMS"] == {"last_updated": "2026-09-05", "observations": {"2026-08-01": 159995.0}}
 
 
 def test_trim_observations_keeps_only_last_36():
@@ -74,9 +75,7 @@ def test_trim_observations_noop_under_limit():
 
 def test_update_series_state_merges_and_trims():
     state = MacroState()
-    state.series["CPIAUCSL"] = SeriesState(
-        last_updated="2026-08-13", observations={"2026-07-01": 321.3}
-    )
+    state.series["CPIAUCSL"] = SeriesState(last_updated="2026-08-13", observations={"2026-07-01": 321.3})
     update_series_state(
         state,
         "CPIAUCSL",
@@ -111,3 +110,31 @@ def test_no_change_path_triggers_fetch_when_last_updated_differs():
     state = MacroState(series={"CPIAUCSL": stale})
     stored = state.series_last_updated("CPIAUCSL")
     assert has_series_changed(stored, "2026-09-11 07:47:03-05") is True
+
+
+def test_round_trip_of_no_change_path_fields(tmp_path):
+    from agents.macro.state import ReleaseState
+
+    path = tmp_path / "state.json"
+    state = MacroState(
+        fomc=FomcState(latest={"date": "2026-09-16"}, minutes={"meeting_date": "2026-07-29"}),
+        regimes={"inflation": "Steady"},
+        delayed=["gdp"],
+        releases={
+            "CPIAUCSL": ReleaseState(release_id="10", name="Consumer Price Index", fetched_on="2026-09-26")
+        },
+        last_brief=LastBrief(run_id="r", bullets=[], event_ids=[], headline="h", narrative_source="llm"),
+    )
+    save_state(state, path)
+    again = load_state(path)
+    assert again.fomc.latest == {"date": "2026-09-16"}
+    assert again.fomc.minutes == {"meeting_date": "2026-07-29"}
+    assert again.regimes == {"inflation": "Steady"}
+    assert again.delayed == ["gdp"]
+    assert again.releases["CPIAUCSL"].name == "Consumer Price Index"
+    assert again.last_brief.headline == "h"
+
+
+def test_legacy_string_bullets_are_upgraded():
+    brief = LastBrief.from_dict({"run_id": "r", "bullets": ["plain"], "event_ids": []})
+    assert brief.bullets == [{"text": "plain", "event_ids": []}]

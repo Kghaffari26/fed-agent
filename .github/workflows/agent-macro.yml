@@ -1,35 +1,54 @@
-# Runs the macro agent on its two SPEC_MACRO.md §9 schedules, via agents-core's
-# shared reusable workflow.
-#
-# NOTE: as of this writing, Kghaffari26/agents-core@main's run-agent.yml is
-# still the old monorepo-shaped reusable workflow (only `agent`/`args` inputs,
-# checks out agents-core itself rather than the calling repo — see STATUS.md
-# and DECISIONS.md). This file is written against the multi-repo interface
-# this build was instructed to target (agent, max_run_usd, site_repo inputs;
-# checkout of *this* repo). It will not run successfully until agents-core
-# publishes a run-agent.yml that supports being called from a separate agent
-# repo. Re-verify this file's `with:` block against agents-core's actual
-# reusable-workflow inputs once that lands.
+# Runs the macro agent on its two SPEC_MACRO.md §9 schedules through agents-core's
+# reusable workflow, which runs `agents-run macro`, commits data/ (state.json, the
+# cost and guard-failure logs) back to this branch, force-pushes public-data/ to
+# this repo's `data` branch, and notifies the site repo.
 name: Macro agent
 
 on:
   schedule:
-    # Weekdays 14:00 UTC: after the 8:30am ET release window in both EST and
-    # EDT, leaving time for FRED to update (§9).
+    # Weekdays 14:00 UTC: after the 8:30am ET release window in both EST and EDT,
+    # leaving time for FRED to update.
     - cron: "0 14 * * 1-5"
-    # Weekdays 19:30 UTC: FOMC statements are released 2:00pm ET. The run
-    # checks config/fomc_dates.toml / the live calendar and exits immediately
-    # (no fetch, no LLM) unless today is a decision day (§9).
+    # Weekdays 19:30 UTC: FOMC statements come out at 2:00pm ET. The gate job
+    # below ends this run immediately (no uv sync, no fetch, no LLM) unless today
+    # is a decision day in config/fomc_dates.toml.
     - cron: "30 19 * * 1-5"
   workflow_dispatch: {}
 
 jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      contents: read
+    outputs:
+      run: ${{ steps.gate.outputs.run }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            scripts/fomc_gate.py
+            config/fomc_dates.toml
+          sparse-checkout-cone-mode: false
+      - id: gate
+        env:
+          SCHEDULE: ${{ github.event.schedule }}
+        run: python3 scripts/fomc_gate.py >> "$GITHUB_OUTPUT"
+
   run:
-    uses: Kghaffari26/agents-core/.github/workflows/run-agent.yml@main
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    permissions:
+      contents: write
+    uses: Kghaffari26/agents-core/.github/workflows/run-agent.yml@v0.1.0
     with:
       agent: macro
-      max_run_usd: 0.25
+      max_run_usd: "0.25"
       site_repo: Kghaffari26/agents-hub
-    secrets:
-      FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      # Kept between runs with actions/cache: the full FRED observation history
+      # (so unchanged series skip the observations call) and the previous
+      # public-data/ (so history/ accumulates up to history_keep snapshots).
+      cache_path: |
+        .cache/macro
+        public-data
+    secrets: inherit

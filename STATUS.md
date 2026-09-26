@@ -1,131 +1,153 @@
 # Status
 
-Worked autonomously overnight per instructions. See `DECISIONS.md` for the one-line rationale behind every
-judgment call made along the way; commits are one per completed step, all pushed to
-`claude/tender-franklin-at8qn8`.
+**2026-09-26.** Every task that was blocked on `agents-core` or on network access is done. agents-core
+`v0.1.0` is installed and wired in, the agent runs through `uv run agents-run macro [--dry-run]`, a real
+run published the data-branch contract, and an immediate re-run made zero LLM calls. See `DECISIONS.md` for
+each judgment call made along the way.
 
-**Final update (09:15 UTC):** the 4-hour agents-core recheck window (started ~05:24 UTC) has closed.
-`Kghaffari26/agents-core@main` was checked roughly every 30 minutes throughout and never moved off commit
-`f79b6aa113857f34c5ac8c2381cc2f3064d4506e` — still the old monorepo shape, no `src/agents_core/{guards,
-registry}.py` on any branch. Per the original instructions, rechecking has stopped; nothing further is
-blocked on time, only on the two items under "Blockers" below. This file is the final handoff — everything
-else in the repo (215 tests, ruff clean, all commits pushed) reflects the complete state of overnight work.
+## Done this session
 
-## Done
-
-Everything in SPEC_MACRO.md §14's build order that doesn't require `agents-core` to be installable or live
-network access to `federalreserve.gov`/`api.stlouisfed.org` — which turned out to be almost everything
-except the final wiring:
-
-- **Repo scaffolding**: multi-repo layout (`agents/macro/`, `config/`, `scripts/`, `evals/macro/`,
-  `docs/specs/`), uv-managed `pyproject.toml` (Python 3.12), `.env.example`.
-- **Config** (§2, §8): `config/macro.toml` with all 25 indicator blocks, `config/fomc_dates.toml` (fallback
-  calendar — **placeholder dates, see "Blockers"**), pydantic models in `agents/macro/config.py`.
-- **FRED fetch** (§3, §5.5): `fetch_fred.py` — series metadata, observations (`"."` → `None`), release-date
-  lookups, `last_updated` change detection. Takes an injected `get` callable rather than its own
-  retry/rate-limit/cache layer.
-- **`scripts/verify_macro_series.py`**: written and exercises its no-key failure path; **not run live**
-  (see "Blockers").
-- **Transforms, revisions, regimes, delayed-data, events** (§5.1-§5.6): fully real, fully tested, in
-  `transform.py`, `revisions.py`, `events.py`.
-- **FOMC processing** (§3, §5.7): `fetch_fed.py` (RSS parsing) and `fomc.py` (extraction, decision/vote
-  parsing incl. fractional ranges, pysbd+difflib sentence diff). Test fixtures are **hand-reconstructed**,
-  not live captures — see `tests/fixtures/fomc/README.md` and "Blockers".
-- **§6 output schema**: `schema.py` (pydantic), exported to `schemas/macro.schema.json`, validated against a
-  fixture matching the spec's own worked example.
-- **`templates.py`**: deterministic headline rendering and the guard-fallback template brief.
-- **`state.py`** (§4): `data/macro/state.json` read/write, 36-observation trimming, and the no-change path
-  (`has_series_changed` returning `False` is what lets a real runner skip both the fetch and the LLM call).
-- **`analyze.py`** (§7.1-§7.3): prompt building, `collect_facts` for the guard, `attach_citations` (code
-  attaches URLs, the model never does), `validate_tone_shift`, `filter_verbatim_key_phrases`. The actual LLM
-  call is behind an injected `guarded_call` matching `agents_core.llm.call_with_number_guard`'s expected
-  shape — ready to wire in, not yet wired.
-- **`pipeline.py`**: per-indicator glue (fetched series → computed values → new_release/revision/
-  threshold_cross events), the piece a real runner calls between fetch and analyze.
-- **Evals** (§11): `style_check.py` and `event_grounding.py` run for real (100% pass, 5/5 fixtures) against
-  the deterministic template brief. `labels_proposed.json`: 5 **real** historical FOMC meeting pairs with
-  proposed tone-shift labels, **PROVISIONAL** — see "Eval results" below.
-- **`.github/workflows/agent-macro.yml`** (§9): both crons + `workflow_dispatch`, calling
-  `Kghaffari26/agents-core/.github/workflows/run-agent.yml@main` with `agent=macro`, `max_run_usd=0.25`,
-  `site_repo=Kghaffari26/agents-hub`. **Won't run successfully yet** — see "Blockers".
-- **README.md, CLAUDE.md**: written and current.
-- **ruff**: clean. **Tests**: all passing.
-
-## Not done / blocked
-
-- Actual `agents_core.agent.Agent` registration, `uv run agents-run macro [--dry-run]`, a real run, and the
-  `run-agent.yml` reusable workflow actually functioning — all wait on `agents-core`'s installable package
-  (see below).
-- Live FRED verification, live FOMC fixture capture, and confirming the proposed FOMC-tone labels against
-  real statement text — all wait on this environment's network policy (see below).
-- The real number-fidelity and phrase-verbatim evals (need a real LLM call).
+- **agents-core `v0.1.0`** pinned (`uv add "agents-core @ git+https://github.com/Kghaffari26/agents-core@v0.1.0"`,
+  resolves to `b0a292d`). All the local stand-ins are gone:
+  - HTTP: `fetch_fred.py` and `fetch_fed.py` take `agents_core.http.Http`, with per-host rate limits of
+    2 req/s for FRED and 1 req/s for the Fed.
+  - LLM, guard and costs: `analyze.py` calls `ctx.llm.structured(..., guard=fields_guard(...), fallback=...)`.
+  - Output schema: `MacroOutput` is an `agents_core.schema.AgentOutput`, so `meta` is agents-core's `RunMeta`.
+  - Publish and runner come from agents-core. The schema export uses `agents_core.export_schemas`.
+- **Registration**: `[project.entry-points."agents_core.agents"] macro = "agents.macro.agent:AGENT"`.
+  `uv run agents-run --list` shows it, and `uv run agents-run macro --dry-run` fetches all 25 series,
+  prints indicators, regimes and events, and makes no LLM call.
+- **LLM calls**: the what-changed brief, FOMC read and minutes summary all go through `agents_core.llm`
+  with the number guard. A guard failure retries once and then falls back to `templates.py`
+  (`narrative_source: "template"`). A refusal or truncation also falls back. `BudgetExceeded` fails the run
+  (§10). Citations are attached by code.
+- **Publishing** follows the agents-core data-branch contract. `public-data/` holds `latest.json`,
+  `history/YYYY-MM-DD.json`, `manifest-entry.json`, `costs-summary.json` and `schema.json`, with the §6
+  shapes unchanged (the `meta` block is agents-core's shared one). Run state goes in `data/`: `macro/state.json`,
+  `costs.jsonl` and `guard_failures.jsonl`.
+- **Workflow**: `.github/workflows/agent-macro.yml` calls
+  `Kghaffari26/agents-core/.github/workflows/run-agent.yml@v0.1.0` with `secrets: inherit`,
+  `agent: macro`, `max_run_usd: "0.25"` and `site_repo: Kghaffari26/agents-hub`. It keeps both crons.
+  - A stdlib-only `gate` job (`scripts/fomc_gate.py`) ends the 19:30 UTC run before `uv sync` unless today
+    is an FOMC decision day in `config/fomc_dates.toml`.
+  - actionlint passes.
+- **Live FRED verification**: all 25 series verified (table below).
+- **Real FOMC fixtures**: six real statement pages from 2022, 2024 and 2026 replaced the hand-built ones,
+  along with the real minutes page, calendar page and RSS feed. The real 2026 page layout broke the old
+  parser, which is now fixed:
+  - the "by a 9 – 3 vote" preface that names only dissenters;
+  - "raise … by 1/4 percentage point to";
+  - words glued together by `text(strip=True)`;
+  - non-breaking hyphens.
+- **FRED fixtures** are now real recorded responses. One of them is the Oct 2025 `"."` shutdown gap in CPIAUCSL.
+- **`config/fomc_dates.toml`** checked against the live calendar page: the 2026 dates were right. The 2027
+  meetings were added.
+- **Evals re-run with real LLM calls** (details below). The FOMC tone labels stay **PROVISIONAL**.
+- **One real run, then an immediate re-run** (numbers below).
 
 ## Test count
 
-**215 tests passing**, `uv run ruff check .` clean. No live network calls anywhere in the suite (FRED and
-FOMC RSS/HTML are respx-mocked or fixture-based).
+**284 tests passing**, and `uv run ruff check .` is clean. The suite makes no live network calls.
+`tests/test_agent.py` runs the agent end to end through the real agents-core runner, with a mock
+FRED/Fed transport and a fake Anthropic client. It covers each §13 item:
 
-## Eval results (provisional)
+- the publish contract;
+- zero LLM calls on an immediate re-run;
+- the payroll revision block and its bullet;
+- a forced guard failure falling back to the template;
+- a refusal falling back to the template;
+- the dry run;
+- the cost cap keeping the previous `latest.json`.
 
-Full detail: `docs/agents/macro.md` and `evals/results/macro-2026-09-24.json`.
+## Real run cost and size
 
-| Eval | Status | Result |
-|---|---|---|
-| Event grounding | Ran (real) | 100% (5/5 fixtures) |
-| Style | Ran (real) | 100% (5/5 fixtures) |
-| Number fidelity | Blocked | needs a real LLM call |
-| Phrase verbatim | Blocked | needs a real LLM call |
-| FOMC tone | **Provisional** | 5 real historical pairs labeled from training-data knowledge, not verified against live text |
+From `data/costs.jsonl`:
 
-## Run cost
+| Run | LLM calls | Cost | `latest.json` |
+|---|---|---|---|
+| `2026-09-26T18-14-55Z-b17c63` (first run, fresh state) | brief $0.0082 + FOMC read $0.0107 + minutes $0.0293 | **$0.0481** | 202,569 bytes (limit 350 KB) |
+| `2026-09-26T18-15-56Z-ec1cae` (immediately after) | **0** | **$0.0000** | same; `data_changed: false`, brief `reused_from_run_id` = the run above |
 
-**$0.00.** No Anthropic API calls were made this session — every LLM-dependent path is gated on
-`agents-core` (see below), so there was nothing to spend against `MAX_RUN_USD`. Setting up the environment
-(`uv sync`) and the git/GitHub work made no billed API calls either.
+The first run is a worst case: it summarizes the latest statement and minutes as well as writing the brief.
+A normal release day is the brief alone, about $0.008. Every guarded call passed on its first attempt.
 
-## agents-core SHA pinned
+**Anthropic spend this session: $0.19.**
+- An earlier real run on pre-fix code: $0.0477. It is in `data/costs.jsonl`. Its state was reset before
+  the final runs.
+- The final real run: $0.0481.
+- The evals: $0.0976.
+- Tests use a fake client.
 
-**None.** Checked `Kghaffari26/agents-core` repeatedly (every commit to `main` between session start and
-now — currently `f79b6aa113857f34c5ac8c2381cc2f3064d4506e`, the only branch): it is still the old monorepo
-shape (`core/registry.py`, `core/guards.py`, `core/llm.py` at the repo root, hardcoded `AGENT_IDS` tuple,
-agents imported from `agents.<id>.agent` inside the *same* repo). No commit on any branch has
-`src/agents_core/guards.py` + `src/agents_core/registry.py` — the installable, entry-point-based shape this
-build needs. Its `run-agent.yml` reusable workflow also only accepts `agent`/`args` inputs today and checks
-out agents-core itself, not a calling repo — incompatible with the multi-repo `max_run_usd`/`site_repo`
-interface this build targets.
+## Live FRED verification (`scripts/verify_macro_series.py`, 2026-09-26)
 
-## Blockers
+All 25 configured series resolved. Excerpt:
 
-1. **`agents-core` isn't installable yet in the multi-repo shape.** Blocks: wiring `analyze.py`'s LLM calls
-   for real, registering the agent with `agents_core.agents`, running `agents-run macro [--dry-run]`, a real
-   run, and `run-agent.yml` actually succeeding in CI.
-2. **This environment's network policy denies `api.stlouisfed.org` and `www.federalreserve.gov`** (confirmed
-   403 at the egress proxy on a direct test — also true for arbitrary hosts like `www.google.com`, so it's a
-   narrow allowlist, not something specific to these two hosts). There's also no `FRED_API_KEY` configured.
-   Blocks: `scripts/verify_macro_series.py` running live, recording real FRED/FOMC fixtures, and verifying
-   `config/fomc_dates.toml`'s placeholder meeting dates.
+| id | series | frequency | units | last_updated | last obs |
+|---|---|---|---|---|---|
+| cpi | CPIAUCSL | Monthly | Index 1982-1984=100 | 2026-09-11 | 2026-08 = 334.131 |
+| core_cpi | CPILFESL | Monthly | Index 1982-1984=100 | 2026-09-11 | 2026-08 = 337.765 |
+| pce / core_pce | PCEPI / PCEPILFE | Monthly | Index 2017=100 | 2026-08-26 | 2026-07 |
+| breakeven_5y | T5YIE | Daily | Percent | 2026-09-25 | 2.34 |
+| unrate | UNRATE | Monthly | Percent | 2026-09-04 | 2026-08 = 4.1 |
+| payrolls | PAYEMS | Monthly | Thousands of Persons | 2026-09-04 | 2026-08 = 159,075 |
+| claims | ICSA | Weekly, Ending Saturday | Number | 2026-09-24 | 2026-09-19 = 197,000 |
+| jolts | JTSJOL | Monthly | Level in Thousands | 2026-09-01 | 2026-07 = 7,271 |
+| ahe | CES0500000003 | Monthly | Dollars per Hour | 2026-09-04 | 37.75 |
+| gdp | A191RL1Q225SBEA | Quarterly | Percent Change | **2026-07-30** | 2026-Q2 = 1.5 |
+| retail_sales / industrial_production | RSAFS / INDPRO | Monthly | $M / Index | 2026-09-16 / 09-18 | 2026-08 |
+| fed_funds_upper / lower | DFEDTARU / DFEDTARL | Daily, 7-Day | Percent | 2026-09-26 | 4.00 / 3.75 |
+| effr, treasury 3M/2Y/5Y/10Y/30Y | EFFR, DGS* | Daily | Percent | 2026-09-25 | 10Y = 5.18 |
+| curve_10y2y / curve_10y3m | T10Y2Y / T10Y3M | Daily | Percent | 2026-09-25 | 0.36 / 0.93 |
+| mortgage_30y | MORTGAGE30US | Weekly, Ending Thursday | Percent | 2026-09-24 | 7.03 |
+| umich_sentiment | UMCSENT | Monthly | Index 1966:Q1=100 | 2026-09-25 | 2026-08 = 51.7 |
 
-## Steps for the morning
+JOLTS is published in thousands, so `config/macro.toml` now divides by 1000 to display millions.
 
-1. **If `agents-core` is ready** (check with the same commands DECISIONS.md used, or just re-run the SHA
-   search across its branches for `src/agents_core/{guards,registry}.py`): read its README/CLAUDE.md, pin it
-   with `uv add "agents-core @ git+https://github.com/Kghaffari26/agents-core@<sha>"`, then:
-   - Wire `analyze.py`'s `guarded_call` parameter to `agents_core.llm.call_with_number_guard`.
-   - Add `agents/macro/agent.py` exposing `AGENT = Agent(id="macro", ...)` per `agents_core.agent`'s actual
-     base class, using `pipeline.compute_indicator_snapshot` per indicator and `state.py` for persistence.
-   - Confirm `.github/workflows/agent-macro.yml`'s `with:` block against agents-core's real `run-agent.yml`
-     inputs (it may not be `max_run_usd`/`site_repo` — check the actual reusable workflow file).
-   - Run `uv run agents-run macro --dry-run` and work through SPEC_MACRO.md §13's acceptance criteria.
-2. **Broaden this environment's (or a future one's) network access** to `api.stlouisfed.org` and
-   `www.federalreserve.gov`, and add a `FRED_API_KEY` (free) as an environment variable. Then:
-   - `uv run python scripts/verify_macro_series.py` and fix anything it flags.
-   - Fetch 3 real FOMC statement pages and replace `tests/fixtures/fomc/*.html` per that directory's
-     README — re-run `uv run pytest tests/test_fomc.py tests/test_fomc_diff.py` to confirm nothing broke.
-   - Verify `config/fomc_dates.toml` against `https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm`
-     and correct any wrong dates (only the Oct 27-28, 2026 meeting was taken from the spec's own example;
-     the rest are placeholders).
-   - Re-derive `evals/macro/labels_proposed.json`'s tone-shift labels from the real statement text for each
-     of the 5 pairs, and flip its `status` from `PROVISIONAL` once confirmed.
-3. Once both are unblocked, `uv run python evals/run_macro.py` again and update `docs/agents/macro.md`, then
-   do one real run and report its actual cost (should be well under `MAX_RUN_USD=0.25`, per SPEC_MACRO.md's
-   own ~$0.02-0.05/call estimates).
+## Eval results
+
+Full detail is in `docs/agents/macro.md` and `evals/results/macro-2026-09-26.json`. The eval run cost $0.0976.
+
+| Eval | Result |
+|---|---|
+| Number fidelity | 100% of final bullets pass the guard; 100% on the first attempt (5 fixtures) |
+| Event grounding / style (LLM bullets) | 100% / 100% |
+| FOMC tone | 83% (5/6); the near-identical pair came back `unchanged`. Labels are **PROVISIONAL** |
+| Phrase verbatim | 100% raw and after filtering |
+
+## Things to do by hand
+
+1. **Repository secrets** (Settings → Secrets and variables → Actions). The workflow uses `secrets: inherit`.
+   - `FRED_API_KEY` and `ANTHROPIC_API_KEY` are required.
+   - `SITE_DISPATCH_TOKEN` is optional. Without it, run-agent.yml quietly skips notifying `agents-hub`.
+2. **Actions permissions**. Under Settings → Actions → General → Workflow permissions, choose "Read and
+   write". run-agent.yml commits `data/` to `main` and force-pushes the `data` branch. If `main` gets
+   branch protection, let the Actions bot push, or the state commit fails.
+3. **If `Kghaffari26/agents-core` is private**, go to its Settings → Actions → General → Access and allow
+   repositories owned by the account, or the `uses:` line won't resolve.
+4. **Confirm the FOMC tone labels** in `evals/macro/labels_proposed.json` and then flip `status`.
+   Two labels changed after reading the real text.
+   - The 2023-12 → 2024-01 pair is genuinely arguable, and it is the one the model missed.
+5. **GDP shows `delayed: true`**. FRED's `A191RL1Q225SBEA` was last updated 2026-07-30, but FRED's calendar
+   for the GDP release lists 2026-08-26. By the §5.5 rule that's a delay. Check whether the second estimate
+   really hasn't posted. If the calendar entry is some other BEA product, the rule needs a per-release
+   exception.
+
+## agents-core: gaps found (none blocking; agents-core not modified)
+
+- **`run-agent.yml` doesn't restore the previous `public-data/`**. The orphan `data` branch would hold one
+  `history/` file, and `ctx.previous_latest()` is always None in CI.
+  - Workaround: the no-change path runs off committed `data/macro/state.json`.
+  - `agent-macro.yml` passes `cache_path: .cache/macro` plus `public-data`, so actions/cache keeps the
+    observation history and previous output.
+  - A native restore of the `data` branch would be cleaner.
+- **`RunMeta` has no `warnings` field**. §10's "`status: ok` with a warning" is logged, not published.
+  `status: "stale"` is used when a FRED series fails.
+- **`agents_core.llm` has no `temperature` parameter** (§7.1 asks for 0). This is moot for
+  `claude-sonnet-5`, which rejects sampling parameters.
+- **§10's "open a GitHub issue when statement extraction fails"** has no hook in run-agent.yml. It is
+  logged as an error, and the previous FOMC block is kept.
+
+## Not done
+
+- `/macro` page rendering (§13's last item) lives in `Kghaffari26/agents-hub`, not in this repo.
+- BLS fallback (`use_bls_fallback`) stays off, as the spec defaults it.

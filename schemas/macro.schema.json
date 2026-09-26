@@ -1,4 +1,5 @@
 {
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$defs": {
     "Brief": {
       "properties": {
@@ -30,7 +31,6 @@
           "title": "Model"
         },
         "generated_at": {
-          "format": "date-time",
           "title": "Generated At",
           "type": "string"
         },
@@ -638,6 +638,11 @@
           "title": "Delayed",
           "type": "boolean"
         },
+        "stale": {
+          "default": false,
+          "title": "Stale",
+          "type": "boolean"
+        },
         "revision": {
           "anyOf": [
             {
@@ -701,16 +706,37 @@
       "type": "object"
     },
     "KeyStat": {
+      "additionalProperties": false,
       "properties": {
         "label": {
           "title": "Label",
           "type": "string"
         },
         "value": {
-          "title": "Value",
-          "type": "number"
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Value"
         },
         "format": {
+          "enum": [
+            "currency_compact",
+            "currency",
+            "percent",
+            "percent_signed",
+            "pp_signed",
+            "count",
+            "count_signed",
+            "count_signed_thousands",
+            "decimal1",
+            "days",
+            "ratio"
+          ],
           "title": "Format",
           "type": "string"
         },
@@ -729,6 +755,19 @@
         "delta_format": {
           "anyOf": [
             {
+              "enum": [
+                "currency_compact",
+                "currency",
+                "percent",
+                "percent_signed",
+                "pp_signed",
+                "count",
+                "count_signed",
+                "count_signed_thousands",
+                "decimal1",
+                "days",
+                "ratio"
+              ],
               "type": "string"
             },
             {
@@ -739,6 +778,7 @@
           "title": "Delta Format"
         },
         "good_direction": {
+          "default": "neutral",
           "enum": [
             "up",
             "down",
@@ -752,49 +792,28 @@
         "label",
         "value",
         "format",
+        "delta",
+        "delta_format",
         "good_direction"
       ],
       "title": "KeyStat",
       "type": "object"
     },
-    "Meta": {
+    "ModelUsage": {
+      "additionalProperties": false,
       "properties": {
-        "run_id": {
-          "title": "Run Id",
-          "type": "string"
+        "fast": {
+          "$ref": "#/$defs/TierUsage"
         },
-        "generated_at": {
-          "format": "date-time",
-          "title": "Generated At",
-          "type": "string"
-        },
-        "status": {
-          "enum": [
-            "ok",
-            "failed"
-          ],
-          "title": "Status",
-          "type": "string"
-        },
-        "data_changed": {
-          "title": "Data Changed",
-          "type": "boolean"
-        },
-        "warnings": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Warnings",
-          "type": "array"
+        "smart": {
+          "$ref": "#/$defs/TierUsage"
         }
       },
       "required": [
-        "run_id",
-        "generated_at",
-        "status",
-        "data_changed"
+        "fast",
+        "smart"
       ],
-      "title": "Meta",
+      "title": "ModelUsage",
       "type": "object"
     },
     "Regime": {
@@ -871,6 +890,75 @@
       "title": "RevisionBlock",
       "type": "object"
     },
+    "RunMeta": {
+      "additionalProperties": false,
+      "description": "The `meta` block at the top of every agent's `latest.json`.",
+      "properties": {
+        "agent": {
+          "title": "Agent",
+          "type": "string"
+        },
+        "schema_version": {
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "started_at": {
+          "title": "Started At",
+          "type": "string"
+        },
+        "finished_at": {
+          "title": "Finished At",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "ok",
+            "stale",
+            "failed"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "data_changed": {
+          "title": "Data Changed",
+          "type": "boolean"
+        },
+        "cost_usd": {
+          "minimum": 0,
+          "title": "Cost Usd",
+          "type": "number"
+        },
+        "model_usage": {
+          "$ref": "#/$defs/ModelUsage"
+        },
+        "sources": {
+          "items": {
+            "$ref": "#/$defs/Source"
+          },
+          "title": "Sources",
+          "type": "array"
+        }
+      },
+      "required": [
+        "agent",
+        "schema_version",
+        "run_id",
+        "started_at",
+        "finished_at",
+        "status",
+        "data_changed",
+        "cost_usd",
+        "model_usage",
+        "sources"
+      ],
+      "title": "RunMeta",
+      "type": "object"
+    },
     "SeriesData": {
       "properties": {
         "dates": {
@@ -901,6 +989,55 @@
         "values"
       ],
       "title": "SeriesData",
+      "type": "object"
+    },
+    "Source": {
+      "additionalProperties": false,
+      "description": "A dataset or page an agent pulled from, shown in the site's source list.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "url": {
+          "format": "uri",
+          "maxLength": 2083,
+          "minLength": 1,
+          "title": "Url",
+          "type": "string"
+        },
+        "retrieved_at": {
+          "title": "Retrieved At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "url",
+        "retrieved_at"
+      ],
+      "title": "Source",
+      "type": "object"
+    },
+    "TierUsage": {
+      "additionalProperties": false,
+      "properties": {
+        "input_tokens": {
+          "default": 0,
+          "title": "Input Tokens",
+          "type": "integer"
+        },
+        "output_tokens": {
+          "default": 0,
+          "title": "Output Tokens",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "input_tokens",
+        "output_tokens"
+      ],
+      "title": "TierUsage",
       "type": "object"
     },
     "ValueBlock": {
@@ -1075,9 +1212,10 @@
       "type": "object"
     }
   },
+  "additionalProperties": false,
   "properties": {
     "meta": {
-      "$ref": "#/$defs/Meta"
+      "$ref": "#/$defs/RunMeta"
     },
     "headline": {
       "title": "Headline",
@@ -1132,7 +1270,9 @@
     "brief",
     "indicators",
     "yield_curve",
-    "fomc"
+    "fomc",
+    "calendar",
+    "events"
   ],
   "title": "MacroOutput",
   "type": "object"

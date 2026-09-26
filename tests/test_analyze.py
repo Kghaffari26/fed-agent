@@ -1,26 +1,31 @@
-"""§7 analyze.py: prompt building, fact collection, citation attachment,
-tone-shift validation, and verbatim phrase filtering — all pure and
-independent of agents_core. `generate_what_changed_brief` is exercised
-against a stub `guarded_call` matching the shape `agents_core.llm.
-call_with_number_guard` is expected to have.
-"""
+"""§7 analyze.py: prompt building, citation attachment, tone-shift validation, verbatim
+phrase filtering, and the guarded calls through a real agents_core.llm.LLM with a fake
+Anthropic client (no network)."""
 
 from __future__ import annotations
 
 from datetime import date
+
+import pytest
+from agents_core.costs import CostTracker
+from agents_core.llm import LLM
 
 from agents.macro.analyze import (
     WhatChangedInput,
     attach_citations,
     build_fomc_read_prompt,
     build_what_changed_prompt,
-    collect_facts,
+    complete_sentences,
     filter_verbatim_key_phrases,
-    generate_what_changed_brief,
+    generate_brief,
+    generate_fomc_read,
+    text_numbers,
     validate_tone_shift,
 )
 from agents.macro.events import new_release_event
 from agents.macro.fomc import Change
+from agents.macro.schema import FomcChange, FomcLatest, FomcTargetRange, FomcVotes
+from tests.macro_fakes import FakeAnthropic
 
 
 def test_build_what_changed_prompt_shape():
@@ -31,29 +36,6 @@ def test_build_what_changed_prompt_shape():
     assert prompt["events"][0]["id"] == events[0].id
     assert prompt["events"][0]["facts"] == {"yoy": 2.9}
     assert prompt["context"] == {"regimes": {}}
-
-
-def test_collect_facts_flat_and_nested():
-    events = [
-        new_release_event("cpi", period=date(2026, 8, 1), high_priority=True, facts={"yoy": 2.9, "mom": 0.3}),
-        new_release_event(
-            "unrate",
-            period=date(2026, 8, 1),
-            high_priority=True,
-            facts={"range": {"lower": 4.0, "upper": 4.25}},
-        ),
-    ]
-    facts = collect_facts(events)
-    assert set(facts) == {2.9, 0.3, 4.0, 4.25}
-
-
-def test_collect_facts_ignores_non_numeric_and_bools():
-    events = [
-        new_release_event(
-            "fomc", period=date(2026, 9, 16), high_priority=True, facts={"decision": "hold", "delayed": True}
-        ),
-    ]
-    assert collect_facts(events) == []
 
 
 def test_attach_citations_pulls_source_url_from_event_id():
@@ -160,52 +142,125 @@ def test_filter_verbatim_key_phrases_empty_list():
     assert rate == 1.0
 
 
-# -- generate_what_changed_brief against a stub guarded_call ---------------------
+# -- guarded generation through agents_core.llm (fake client) ---------------------------
 
 
-class _StubResult:
-    def __init__(self, text, narrative_source):
-        self.text = text
-        self.narrative_source = narrative_source
+@pytest.fixture
+def llm_for(tmp_path, monkeypatch):
+    monkeypatch.setenv("AGENTS_CORE_DATA_DIR", str(tmp_path))
+
+    def make(responders):
+        client = FakeAnthropic(responders)
+        return LLM(
+            CostTracker(agent="macro", run_id="t", path=tmp_path / "costs.jsonl"), client=client
+        ), client
+
+    return make
 
 
-def test_generate_what_changed_brief_passes_through_llm_result():
-    events = [new_release_event("cpi", period=date(2026, 8, 1), high_priority=True, facts={"yoy": 2.9})]
-    payload = WhatChangedInput(as_of="2026-09-11", events=events, context={})
+def test_complete_sentences_trims_trailing_fragment():
+    assert complete_sentences("One. Two is cut off and") == "One."
+    assert complete_sentences("Done.") == "Done."
+    assert complete_sentences("No stop at all") == "No stop at all"
 
-    def stub_guarded_call(*, run_id, agent, prompt, facts, call, template_fallback, allow=()):
-        assert run_id == "run-1"
-        assert agent == "macro"
-        assert facts == [2.9]
-        return _StubResult(text='{"bullets": []}', narrative_source="llm")
 
-    text, source = generate_what_changed_brief(
-        run_id="run-1",
-        payload=payload,
-        event_by_id={e.id: e for e in events},
+def test_text_numbers_reads_fed_fractions_and_percents():
+    numbers = text_numbers("to 3-3/4 to 4 percent, and 2 percent goal; 0.5 percentage point")
+    assert {3.75, 4.0, 2.0, 0.5} <= set(numbers)
+
+
+def _cpi_event():
+    return new_release_event(
+        "cpi",
+        period=date(2026, 8, 1),
+        high_priority=True,
+        facts={"indicator": "CPI", "yoy": 3.4, "prior_yoy": 3.3},
+    )
+
+
+def test_generate_brief_drops_bullets_citing_unknown_events(llm_for):
+    event = _cpi_event()
+    llm, _ = llm_for(
+        {
+            "BriefDraft": lambda p: {
+                "bullets": [
+                    {"text": "CPI rose to 3.4% from 3.3%.", "event_ids": [event.id]},
+                    {"text": "Something else happened.", "event_ids": ["made_up:1"]},
+                ]
+            }
+        }
+    )
+    result = generate_brief(
+        llm,
+        WhatChangedInput(as_of="2026-09-26", events=[event], context={}),
         indicator_source_urls={"cpi": "https://fred.stlouisfed.org/series/CPIAUCSL"},
-        guarded_call=stub_guarded_call,
-        call_llm=lambda prompt: "unused",
-        template_fallback=lambda: "unused",
+        indicator_names={"cpi": "CPI"},
     )
-    assert source == "llm"
-    assert text == '{"bullets": []}'
+    assert result.narrative_source == "llm"
+    assert [b.text for b in result.bullets] == ["CPI rose to 3.4% from 3.3%."]
+    assert result.bullets[0].citations[0].url == "https://fred.stlouisfed.org/series/CPIAUCSL"
 
 
-def test_generate_what_changed_brief_reports_template_fallback():
-    events = [new_release_event("cpi", period=date(2026, 8, 1), high_priority=True, facts={"yoy": 2.9})]
-    payload = WhatChangedInput(as_of="2026-09-11", events=events, context={})
-
-    def stub_guarded_call(*, run_id, agent, prompt, facts, call, template_fallback, allow=()):
-        return _StubResult(text="CPI rose 2.9% YoY. (template)", narrative_source="template")
-
-    text, source = generate_what_changed_brief(
-        run_id="run-1",
-        payload=payload,
-        event_by_id={e.id: e for e in events},
+def test_generate_brief_accepts_allowed_tenor_names(llm_for):
+    event = _cpi_event()
+    llm, _ = llm_for(
+        {
+            "BriefDraft": lambda p: {
+                "bullets": [{"text": "CPI hit 3.4% as the 10Y held.", "event_ids": [event.id]}]
+            }
+        }
+    )
+    result = generate_brief(
+        llm,
+        WhatChangedInput(as_of="x", events=[event], context={}),
         indicator_source_urls={},
-        guarded_call=stub_guarded_call,
-        call_llm=lambda prompt: "unused",
-        template_fallback=lambda: "unused",
+        indicator_names={},
     )
-    assert source == "template"
+    assert result.narrative_source == "llm" and result.attempts == 1
+
+
+def _fomc_block(changes):
+    return FomcLatest(
+        date=date(2026, 9, 16),
+        url="https://www.federalreserve.gov/x",
+        decision="hike",
+        target_range=FomcTargetRange(lower=3.75, upper=4.0),
+        change_bp=25,
+        votes=FomcVotes(for_count=12),
+        latest_text="The Committee decided to raise the target range. Inflation remains elevated.",
+        changes=changes,
+    )
+
+
+def test_fomc_read_with_empty_diff_is_forced_unchanged(llm_for):
+    llm, _ = llm_for(
+        {
+            "FomcReadDraft": lambda p: {
+                "summary": "No change in wording.",
+                "tone_shift": "more_hawkish",
+                "rationale": "n/a",
+                "cited_change_idx": [3],
+                "key_phrases": [],
+            }
+        }
+    )
+    read = generate_fomc_read(llm, _fomc_block([])).read
+    assert read.tone_shift == "unchanged" and read.cited_change_idx == []
+
+
+def test_fomc_read_citing_nonexistent_change_falls_back(llm_for):
+    changes = [FomcChange(idx=0, type="modified", before="maintain", after="raise the target range")]
+    llm, _ = llm_for(
+        {
+            "FomcReadDraft": lambda p: {
+                "summary": "Rates rose.",
+                "tone_shift": "more_hawkish",
+                "rationale": "See change 7.",
+                "cited_change_idx": [99],
+                "key_phrases": [],
+            }
+        }
+    )
+    read = generate_fomc_read(llm, _fomc_block(changes)).read
+    assert read.narrative_source == "template"
+    assert read.tone_shift == "more_hawkish" and read.cited_change_idx == [0]

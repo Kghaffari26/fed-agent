@@ -1,0 +1,282 @@
+{
+  "agent": "macro",
+  "run_at": "2026-09-26T18:13:31.705888+00:00",
+  "template_checks": {
+    "status": "ran",
+    "note": "Deterministic TEMPLATE brief (the guard fallback). No LLM call.",
+    "fixtures": [
+      {
+        "scenario": "CPI day",
+        "style_ok": true,
+        "style_violations": [],
+        "grounding_ok": true
+      },
+      {
+        "scenario": "Delayed-release day (e.g. a government shutdown)",
+        "style_ok": true,
+        "style_violations": [],
+        "grounding_ok": true
+      },
+      {
+        "scenario": "FOMC day",
+        "style_ok": true,
+        "style_violations": [],
+        "grounding_ok": true
+      },
+      {
+        "scenario": "Jobs day with a big revision",
+        "style_ok": true,
+        "style_violations": [],
+        "grounding_ok": true
+      },
+      {
+        "scenario": "Quiet day with 1 minor event",
+        "style_ok": true,
+        "style_violations": [],
+        "grounding_ok": true
+      }
+    ],
+    "style_pass_rate": 1.0,
+    "grounding_pass_rate": 1.0
+  },
+  "number_fidelity": {
+    "status": "ran",
+    "final_guard_pass_rate": 1.0,
+    "first_attempt_pass_rate": 1.0,
+    "llm_style_pass_rate": 1.0,
+    "llm_grounding_pass_rate": 1.0,
+    "fixtures": [
+      {
+        "scenario": "CPI day",
+        "narrative_source": "llm",
+        "attempts": 1,
+        "first_attempt_pass": true,
+        "final_bullets_pass_guard": true,
+        "unsupported": [],
+        "style_ok": true,
+        "style_violations": [],
+        "grounding_ok": true,
+        "top_priority_covered": true,
+        "bullets": [
+          "CPI (all items) rose to 2.9% year-over-year in August 2026, up from a prior 2.7%, with monthly inflation at 0.3%.",
+          "Core CPI held at 3.1% year-over-year, unchanged from the prior period, with a 0.2% monthly gain and 3.3% annualized 3-month pace.",
+          "CPI (all items) crossed above the 2.5% threshold, moving from 2.4% to 2.9%."
+        ]
+      },
+      {
+        "scenario": "Delayed-release day (e.g. a government shutdown)",
+        "narrative_source": "llm",
+        "attempts": 1,
+        "first_attempt_pass": true,
+        "final_bullets_pass_guard": true,
+        "unsupported": [],
+        "style_ok": true,
+        "style_violations": [],
+        "grounding_ok": true,
+        "top_priority_covered": true,
+        "bullets": [
+          "The release of Nonfarm payrolls data scheduled for 2026-10-02 was delayed.",
+          "The release of the Unemployment rate data scheduled for 2026-10-02 was also delayed."
+        ]
+      },
+      {
+        "scenario": "FOMC day",
+        "narrative_source": "llm",
+        "attempts": 1,
+        "first_attempt_pass": true,
+        "final_bullets_pass_guard": true,
+        "unsupported": [],
+        "style_ok": true,
+        "style_violations": [],
+        "grounding_ok": true,
+        "top_priority_covered": true,
+        "bullets": [
+          "The FOMC cut its target range by 25 bp to 4.0-4.25%, with 1 dissent recorded.",
+          "The policy regime shifted from Holding to Cutting.",
+          "Initial jobless claims for the period ending 2026-09-13 fell to 231,000 from a prior level of 264,000.",
+          "The 4-week average of initial jobless claims stood at 240,000."
+        ]
+      },
+      {
+        "scenario": "Jobs day with a big revision",
+        "narrative_source": "llm",
+        "attempts": 1,
+        "first_attempt_pass": true,
+        "final_bullets_pass_guard": true,
+        "unsupported": [],
+        "style_ok": true,
+        "style_violations": [],
+        "grounding_ok": true,
+        "top_priority_covered": true,
+        "bullets": [
+          "Nonfarm payrolls rose by 22 thousand in August 2026, down from a prior monthly gain of 41 thousand; the 3-month average stood at 29 thousand.",
+          "The unemployment rate rose 0.1pp to 4.3% in August 2026, up from 4.2% prior.",
+          "June 2026 payrolls were revised down from -13 thousand to -66 thousand, a revision of -53 thousand.",
+          "July 2026 payrolls were revised down from 73 thousand to 41 thousand, a revision of -32 thousand.",
+          "The labor market regime is characterized as Softening amid these payroll and unemployment updates."
+        ]
+      },
+      {
+        "scenario": "Quiet day with 1 minor event",
+        "narrative_source": "llm",
+        "attempts": 1,
+        "first_attempt_pass": true,
+        "final_bullets_pass_guard": true,
+        "unsupported": [],
+        "style_ok": true,
+        "style_violations": [],
+        "grounding_ok": true,
+        "top_priority_covered": true,
+        "bullets": [
+          "UMich consumer sentiment index fell to 58.2 in August 2026 from a prior level of 61.7, a change of -3.5 points."
+        ]
+      }
+    ]
+  },
+  "fomc_tone": {
+    "status": "ran",
+    "labels_status": "PROVISIONAL",
+    "match_rate": 0.8333333333333334,
+    "near_identical_unchanged": true,
+    "pass": true,
+    "pairs": [
+      {
+        "previous_date": "2024-07-31",
+        "new_date": "2024-09-18",
+        "decision": "cut",
+        "change_bp": -50,
+        "changes": 9,
+        "label": "more_dovish",
+        "predicted": "more_dovish",
+        "match": true,
+        "near_identical": false,
+        "narrative_source": "llm",
+        "cited_change_idx": [
+          7,
+          1,
+          5,
+          9
+        ],
+        "cited_idx_valid": true,
+        "raw_phrase_pass_rate": 1.0,
+        "final_phrases_verbatim": true,
+        "summary": "The Federal Reserve cut its target range for the federal funds rate by 1/2 percentage point to 4-3/4 to 5 percent. The statement noted job gains have slowed while unemployment remains low, and inflation has made further progress toward the Committee's 2 percent goal, though it remains somewhat elevated. The Committee said it has gained greater confidence that inflation is moving sustainably toward 2 percent and now views employment and inflation risks as roughly in balance. The Committee will continue reducing its securities holdings and reaffirmed commitment to both maximum employment and price stability. One member preferred a smaller quarter-point cut.",
+        "rationale": "The change from maintaining rates to cutting the target range by 1/2 percentage point (idx 7) is a clear easing action. This is reinforced by softer labor market language ('slowed' vs 'moderated', idx 1), increased confidence that inflation is moving toward target (idx 5), and removal of language requiring greater confidence before cutting (idx 9), all signaling a more dovish stance."
+      },
+      {
+        "previous_date": "2022-03-16",
+        "new_date": "2022-05-04",
+        "decision": "hike",
+        "change_bp": 50,
+        "changes": 10,
+        "label": "more_hawkish",
+        "predicted": "more_hawkish",
+        "match": true,
+        "near_identical": false,
+        "narrative_source": "llm",
+        "cited_change_idx": [
+          8,
+          11,
+          12
+        ],
+        "cited_idx_valid": true,
+        "raw_phrase_pass_rate": 1.0,
+        "final_phrases_verbatim": true,
+        "summary": "The Federal Reserve raised its target range for the federal funds rate by 50 basis points to 3/4 to 1 percent. The statement noted that overall economic activity edged down in the first quarter, though household spending and business fixed investment remained strong, and job gains stayed robust. The Committee reiterated that it is highly attentive to inflation risks, citing pressures from the war in Ukraine and COVID-related lockdowns in China exacerbating supply chain disruptions. The Fed also announced it will begin reducing its balance sheet holdings starting June 1. The vote in favor was unanimous with no dissents.",
+        "rationale": "The Committee raised the target range for the federal funds rate to 3/4 to 1 percent, a 50 basis point increase (idx 11). It also added explicit language stating it is 'highly attentive to inflation risks' (idx 8) and moved from merely expecting to actually deciding to begin balance sheet runoff on a specific date, June 1 (idx 12), all signaling a more aggressive tightening stance."
+      },
+      {
+        "previous_date": "2026-07-29",
+        "new_date": "2026-09-16",
+        "decision": "hike",
+        "change_bp": 25,
+        "changes": 8,
+        "label": "more_hawkish",
+        "predicted": "more_hawkish",
+        "match": true,
+        "near_identical": false,
+        "narrative_source": "llm",
+        "cited_change_idx": [
+          0,
+          9
+        ],
+        "cited_idx_valid": true,
+        "raw_phrase_pass_rate": 1.0,
+        "final_phrases_verbatim": true,
+        "summary": "The Federal Reserve raised its target range for the federal funds rate by 1/4 percentage point to 3-3/4 to 4 percent. The vote was unanimous, with 12 members in favor. The statement notes that economic activity is expanding at a solid pace and that domestic spending has been resilient, despite elevated uncertainty tied in part to geopolitical developments. Inflation remains elevated. The Committee stated that today's policy action will support a timelier return to its 2 percent inflation goal.",
+        "rationale": "The Committee raised rates by 1/4 percentage point rather than holding steady (idx 0), and it explicitly stated that this action will support a timelier return to the 2 percent inflation goal (idx 9), indicating a more assertive stance against elevated inflation despite dropping the reference to specific supply-side drivers (idx 7)."
+      },
+      {
+        "previous_date": "2024-06-12",
+        "new_date": "2024-07-31",
+        "decision": "hold",
+        "change_bp": 0,
+        "changes": 5,
+        "label": "more_dovish",
+        "predicted": "more_dovish",
+        "match": true,
+        "near_identical": false,
+        "narrative_source": "llm",
+        "cited_change_idx": [
+          1,
+          2,
+          6
+        ],
+        "cited_idx_valid": true,
+        "raw_phrase_pass_rate": 1.0,
+        "final_phrases_verbatim": true,
+        "summary": "The Federal Reserve held its target range for the federal funds rate steady at 5-1/4 to 5-1/2 percent. The statement noted that job gains have moderated and the unemployment rate has moved up but remains low, while inflation has eased over the past year but remains somewhat elevated. It described some further progress toward the 2 percent inflation goal and said risks to employment and inflation goals continue moving into better balance. The Committee said it is now attentive to risks on both sides of its dual mandate, a shift from prior language focused mainly on inflation risks. All 12 members voted in favor of the decision.",
+        "rationale": "The statement softened language on the labor market by noting moderated job gains and a rising unemployment rate, described inflation as 'somewhat elevated' rather than simply 'elevated,' and shifted from being 'highly attentive to inflation risks' to being attentive to risks on both sides of the mandate, signaling greater concern about employment alongside inflation."
+      },
+      {
+        "previous_date": "2023-12-13",
+        "new_date": "2024-01-31",
+        "decision": "hold",
+        "change_bp": 0,
+        "changes": 13,
+        "label": "more_dovish",
+        "predicted": "more_hawkish",
+        "match": false,
+        "near_identical": false,
+        "narrative_source": "llm",
+        "cited_change_idx": [
+          0,
+          4,
+          14
+        ],
+        "cited_idx_valid": true,
+        "raw_phrase_pass_rate": 1.0,
+        "final_phrases_verbatim": true,
+        "summary": "The Federal Reserve held its target interest rate range at 5-1/4 to 5-1/2 percent. The statement now describes economic activity as expanding at a solid pace, an upgrade from prior language noting slowed growth. The Committee removed earlier language about banking system soundness and tighter credit conditions weighing on the economy. New language states that risks to employment and inflation goals are moving into better balance, and that the Committee does not expect it will be appropriate to reduce rates until it gains greater confidence that inflation is moving sustainably toward 2 percent. All twelve voting members supported the decision.",
+        "rationale": "The upgraded description of economic activity (idx 0) and the new statement that rate cuts are not expected until greater confidence in sustained disinflation is reached (idx 14) signal a less dovish stance than before, even though rates were held steady. The removal of language about tighter credit conditions weighing on the economy (idx 4) also removes a dovish-leaning justification for future easing."
+      },
+      {
+        "previous_date": "2026-06-17",
+        "new_date": "2026-07-29",
+        "decision": "hold",
+        "change_bp": 0,
+        "changes": 1,
+        "label": "unchanged",
+        "predicted": "unchanged",
+        "match": true,
+        "near_identical": true,
+        "narrative_source": "llm",
+        "cited_change_idx": [
+          1
+        ],
+        "cited_idx_valid": true,
+        "raw_phrase_pass_rate": 1.0,
+        "final_phrases_verbatim": true,
+        "summary": "The Federal Reserve decided to hold the target range for the federal funds rate at 3-1/2 to 3-3/4 percent. The Committee will continue its policy of maintaining ample reserves in the banking system, a slight rewording from the prior statement's language of reaffirming that policy. The statement notes that economic activity is expanding at a solid pace, though uncertainty remains due in part to the conflict in the Middle East. Job gains have kept pace with the workforce, and the unemployment rate has changed little. Inflation remains elevated relative to the Committee's 2 percent goal, partly reflecting supply shocks affecting certain sectors, including energy. Three members dissented, preferring a 1/4 percentage point rate increase.",
+        "rationale": "The only cited change (idx 1) reflects a minor wording shift from 'reaffirmed' to 'is continuing,' which does not alter the substance of the policy stance regarding ample reserves, so the tone is assessed as unchanged."
+      }
+    ]
+  },
+  "phrase_verbatim": {
+    "status": "ran",
+    "final_verbatim_rate": 1.0,
+    "raw_verbatim_rate_mean": 1.0
+  },
+  "cost_usd": 0.0976,
+  "llm_calls": 12
+}

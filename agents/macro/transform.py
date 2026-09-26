@@ -230,3 +230,121 @@ def curve_last_sign_change(spread_series: list[Observation]) -> date | None:
             last_change = obs.date
         last_sign = sign
     return last_change
+
+
+# --------------------------------------------------------------------------
+# Per-indicator values and whole series (§5.1, §5.2)
+# --------------------------------------------------------------------------
+
+
+def diff_series(series: list[Observation]) -> list[Observation]:
+    """x_t - x_{t-1} at every point after the first (None if either side is missing)."""
+    out = []
+    for prev, cur in zip(series, series[1:], strict=False):
+        value = None if prev.value is None or cur.value is None else cur.value - prev.value
+        out.append(Observation(date=cur.date, value=value))
+    return out
+
+
+def indicator_value(
+    name: Transform, series: list[Observation], frequency: Frequency, *, primary: Transform
+) -> float | None:
+    """`apply_transform`, except that `avg_3` next to a `mom_diff` primary (payrolls) is
+    the 3-month average *change* (§2: "MoM change (thousands), 3-mo avg"), not the
+    average level."""
+    if name == "avg_3" and primary == "mom_diff":
+        return avg_3(diff_series(series))
+    return apply_transform(name, series, frequency)
+
+
+def transform_series(
+    name: Transform,
+    series: list[Observation],
+    frequency: Frequency,
+    *,
+    primary: Transform,
+    since: date | None = None,
+) -> list[Observation]:
+    """The transform evaluated as of every observation dated on/after `since`."""
+    if name == "level":
+        return [o for o in series if since is None or o.date >= since]
+    out = []
+    for i, obs in enumerate(series):
+        if since is not None and obs.date < since:
+            continue
+        out.append(
+            Observation(
+                date=obs.date, value=indicator_value(name, series[: i + 1], frequency, primary=primary)
+            )
+        )
+    return out
+
+
+def resample_weekly_friday(series: list[Observation]) -> list[Observation]:
+    """Daily -> weekly (Friday close, §5.2): the last non-None value of each Mon-Fri
+    week, dated that week's Friday."""
+    weeks: dict[date, float] = {}
+    for obs in series:
+        if obs.value is None:
+            continue
+        # Mon-Fri map forward to that Friday; a weekend print belongs to the week just ended.
+        friday = obs.date + timedelta(days=4 - obs.date.weekday())
+        weeks[friday] = obs.value
+    return [Observation(date=d, value=v) for d, v in sorted(weeks.items())]
+
+
+def resample_month_end(series: list[Observation]) -> list[Observation]:
+    """Daily/weekly -> monthly: the last non-None value in each calendar month, dated
+    at that month's last observation."""
+    months: dict[tuple[int, int], Observation] = {}
+    for obs in series:
+        if obs.value is not None:
+            months[(obs.date.year, obs.date.month)] = obs
+    return [months[k] for k in sorted(months)]
+
+
+def value_on_or_before(series: list[Observation], day: date) -> Observation | None:
+    """The latest non-None observation dated on/before `day`."""
+    best = None
+    for obs in series:
+        if obs.date > day:
+            break
+        if obs.value is not None:
+            best = obs
+    return best
+
+
+def inversion_periods(
+    spread: list[Observation], *, min_observations: int = 5
+) -> list[tuple[date, date | None]]:
+    """Stretches where the spread stayed below zero for at least `min_observations`
+    readings. The last period's end is None while it is still ongoing."""
+    periods: list[tuple[date, date | None]] = []
+    run: list[Observation] = []
+    for obs in spread:
+        if obs.value is None:
+            continue
+        if obs.value < 0:
+            run.append(obs)
+            continue
+        if len(run) >= min_observations:
+            periods.append((run[0].date, run[-1].date))
+        run = []
+    if len(run) >= min_observations:
+        periods.append((run[0].date, None))
+    return periods
+
+
+def confirmed_sign_change(spread: list[Observation], *, confirmation: int = 5) -> tuple[date, date] | None:
+    """The most recent sign change that then held for `confirmation` consecutive
+    readings: returns (change_date, confirmed_on), where confirmed_on is the date of the
+    `confirmation`-th reading with the new sign (§5.6's 5-day confirmation)."""
+    values = [o for o in spread if o.value is not None and o.value != 0]
+    result = None
+    for i in range(1, len(values)):
+        if (values[i].value > 0) == (values[i - 1].value > 0):
+            continue
+        window = values[i : i + confirmation]
+        if len(window) == confirmation and all((o.value > 0) == (values[i].value > 0) for o in window):
+            result = (values[i].date, window[-1].date)
+    return result

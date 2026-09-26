@@ -6,6 +6,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from agents_core.export_schemas import schema_dict
+
 from agents.macro.schema import MacroOutput
 
 FIXTURE = Path(__file__).parent / "fixtures" / "schema" / "latest_example.json"
@@ -17,6 +19,7 @@ def test_spec_example_fixture_validates():
     output = MacroOutput.model_validate(raw)
     assert output.headline.startswith("August CPI rose")
     assert output.meta.data_changed is True
+    assert output.meta.agent == "macro"
     assert output.regimes.inflation.label == "Cooling"
 
 
@@ -59,7 +62,7 @@ def test_fomc_tone_shift_populated_with_cited_change_idx():
 
 def test_exported_json_schema_matches_snapshot():
     exported = json.loads(EXPORTED_SCHEMA.read_text())
-    current = MacroOutput.model_json_schema()
+    current = schema_dict(MacroOutput)
     assert exported == current, (
         "schemas/macro.schema.json is stale — run `uv run python scripts/export_schema.py`"
     )

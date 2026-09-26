@@ -2,28 +2,68 @@
   "scenario": "Jobs day with a big revision",
   "as_of": "2026-09-05",
   "context": {
-    "regimes": {"labor": {"label": "Softening", "detail": "Unemployment 4.4%; payrolls 3-mo avg +61K"}},
-    "fed_target_range": {"lower": 4.0, "upper": 4.25}
+    "regimes": {
+      "labor": "Softening"
+    },
+    "fed_target_range": {
+      "lower": 4.0,
+      "upper": 4.25
+    },
+    "inflation_target_pct": 2
   },
   "events": [
     {
-      "id": "new_release:payrolls:2026-08",
+      "id": "new_release:payrolls:2026-08-01",
       "type": "new_release",
       "priority": 80,
-      "facts": {"mom_diff": 71.0, "avg_3": 61.0}
+      "facts": {
+        "indicator": "Nonfarm payrolls",
+        "period": "2026-08-01",
+        "units": "thousands",
+        "mom_diff": 22,
+        "prior_mom_diff": 41,
+        "avg_3": 29
+      }
     },
     {
-      "id": "revision:payrolls:2026-07",
+      "id": "new_release:unrate:2026-08-01",
+      "type": "new_release",
+      "priority": 80,
+      "facts": {
+        "indicator": "Unemployment rate",
+        "period": "2026-08-01",
+        "units": "percent",
+        "level": 4.3,
+        "prior_level": 4.2,
+        "change_pp": 0.1
+      }
+    },
+    {
+      "id": "revision:payrolls:2026-06-01",
       "type": "revision",
       "priority": 65,
-      "facts": {"period": "2026-07-01", "old": 73.0, "new": 41.0}
+      "facts": {
+        "indicator": "Nonfarm payrolls",
+        "units": "thousands",
+        "period": "2026-06-01",
+        "old": -13,
+        "new": -66,
+        "revision": -53
+      }
     },
     {
-      "id": "new_release:unrate:2026-08",
-      "type": "new_release",
-      "priority": 80,
-      "facts": {"level": 4.4, "change_pp": 0.1}
+      "id": "revision:payrolls:2026-07-01",
+      "type": "revision",
+      "priority": 50,
+      "facts": {
+        "indicator": "Nonfarm payrolls",
+        "units": "thousands",
+        "period": "2026-07-01",
+        "old": 73,
+        "new": 41,
+        "revision": -32
+      }
     }
   ],
-  "top_priority_event_id": "new_release:payrolls:2026-08"
+  "top_priority_event_id": "new_release:payrolls:2026-08-01"
 }

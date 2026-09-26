@@ -1,13 +1,10 @@
-# Fallback FOMC meeting calendar, used only when the live parse of
-# https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm fails.
-# Maintained by hand once a year from that page.
+# Fallback FOMC meeting calendar, used when the live parse of
+# https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm fails, and by the
+# FOMC-afternoon workflow gate (.github/workflows/agent-macro.yml) to decide whether
+# today is a decision day. Maintained by hand once a year from that page.
 #
-# PLACEHOLDER — this environment's network policy blocks federalreserve.gov, so
-# these dates could not be verified live (see STATUS.md). Only the final
-# 2026-10-27/28 meeting is taken directly from the spec's own worked example
-# (SPEC_MACRO.md §8); the rest follow the FOMC's usual ~6-8 week cadence and
-# MUST be checked against the real calendar before this file is trusted in
-# production.
+# Verified against the live calendar page on 2026-09-26 (see STATUS.md). `sep = true`
+# marks meetings with a Summary of Economic Projections (the page's asterisk).
 
 [[meeting]]
 start = "2026-01-27"
@@ -47,4 +44,44 @@ sep = false
 [[meeting]]
 start = "2026-12-08"
 end = "2026-12-09"
+sep = true
+
+[[meeting]]
+start = "2027-01-26"
+end = "2027-01-27"
+sep = false
+
+[[meeting]]
+start = "2027-03-16"
+end = "2027-03-17"
+sep = true
+
+[[meeting]]
+start = "2027-04-27"
+end = "2027-04-28"
+sep = false
+
+[[meeting]]
+start = "2027-06-08"
+end = "2027-06-09"
+sep = true
+
+[[meeting]]
+start = "2027-07-27"
+end = "2027-07-28"
+sep = false
+
+[[meeting]]
+start = "2027-09-14"
+end = "2027-09-15"
+sep = true
+
+[[meeting]]
+start = "2027-10-26"
+end = "2027-10-27"
+sep = false
+
+[[meeting]]
+start = "2027-12-07"
+end = "2027-12-08"
 sep = true

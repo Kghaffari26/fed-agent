@@ -1,17 +1,30 @@
 {
   "scenario": "Quiet day with 1 minor event",
-  "as_of": "2026-08-15",
+  "as_of": "2026-09-26",
   "context": {
-    "regimes": {"inflation": {"label": "Steady", "detail": "Core PCE 2.8% YoY; 2.8% 3-mo annualized"}},
-    "fed_target_range": {"lower": 4.0, "upper": 4.25}
+    "regimes": {
+      "inflation": "Steady"
+    },
+    "fed_target_range": {
+      "lower": 4.0,
+      "upper": 4.25
+    },
+    "inflation_target_pct": 2
   },
   "events": [
     {
-      "id": "new_release:umich_sentiment:2026-08",
+      "id": "new_release:umich_sentiment:2026-08-01",
       "type": "new_release",
       "priority": 60,
-      "facts": {"level": 68.4, "change_pp": 1.2}
+      "facts": {
+        "indicator": "UMich consumer sentiment",
+        "period": "2026-08-01",
+        "units": "index",
+        "level": 58.2,
+        "prior_level": 61.7,
+        "change_pp": -3.5
+      }
     }
   ],
-  "top_priority_event_id": "new_release:umich_sentiment:2026-08"
+  "top_priority_event_id": "new_release:umich_sentiment:2026-08-01"
 }

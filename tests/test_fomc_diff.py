@@ -1,5 +1,5 @@
 """§5.7 step 5: sentence diff — added/removed/modified classification and
-abbreviation-safe sentence splitting, against the reconstructed fixtures."""
+abbreviation-safe sentence splitting, against real statement pages."""
 
 from __future__ import annotations
 
@@ -30,34 +30,47 @@ def test_split_sentences_handles_percent_and_initials():
     assert sentences[0].startswith("Jerome H. Powell")
 
 
-# -- near-identical pair: mostly "equal", one "modified" ---------------------------
+# -- real statement pairs ------------------------------------------------------------
 
 
-def test_diff_near_identical_statements_yields_one_modified_change():
-    jan = _policy_text("statement_2026_01_28.html")
-    mar = _policy_text("statement_2026_03_18.html")
-    changes = diff_statements(jan, mar)
+def test_diff_near_identical_real_pair_yields_one_modified_change():
+    # June -> July 2026: only "reaffirmed its policy" -> "is continuing its policy" changed.
+    changes = diff_statements(
+        _policy_text("statement_2026_06_17.html"), _policy_text("statement_2026_07_29.html")
+    )
     assert len(changes) == 1
     assert changes[0].type == "modified"
-    assert "roughly in balance" in changes[0].before
-    assert "uncertainty around the economic outlook has increased" in changes[0].after
+    assert "reaffirmed its policy" in changes[0].before
+    assert "is continuing its policy" in changes[0].after
 
 
 def test_diff_identical_statements_yields_no_changes():
-    jan = _policy_text("statement_2026_01_28.html")
-    assert diff_statements(jan, jan) == []
+    text = _policy_text("statement_2026_07_29.html")
+    assert diff_statements(text, text) == []
 
 
-# -- substantially reworded pair: modified + added/removed ------------------------
+def test_diff_real_hike_pair():
+    changes = diff_statements(
+        _policy_text("statement_2026_07_29.html"), _policy_text("statement_2026_09_16.html")
+    )
+    by_type = {t: [c for c in changes if c.type == t] for t in ("added", "removed", "modified")}
+    assert all(by_type.values())
+    decision = changes[0]
+    assert decision.type == "modified"
+    assert "maintain the target range" in decision.before
+    assert "raise the target range" in decision.after
+    added = [c.after for c in by_type["added"]]
+    assert "Inflation remains elevated." in added
+    assert [c.idx for c in changes] == sorted(c.idx for c in changes)
 
 
-def test_diff_reworded_statements_yields_multiple_changes():
-    mar = _policy_text("statement_2026_03_18.html")
-    sep = _policy_text("statement_2026_09_16.html")
-    changes = diff_statements(mar, sep)
-    assert len(changes) >= 2
-    types = {c.type for c in changes}
-    assert "modified" in types
+def test_diff_real_cut_pair_2024():
+    changes = diff_statements(
+        _policy_text("statement_2024_07_31.html"), _policy_text("statement_2024_09_18.html")
+    )
+    afters = " ".join(c.after or "" for c in changes)
+    assert "Job gains have slowed" in afters
+    assert "lower the target range" in afters
 
 
 def test_diff_modified_pair_has_high_similarity_ratio():

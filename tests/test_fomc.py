@@ -1,5 +1,7 @@
-"""§5.7 extraction, decision parsing, and vote parsing, against the 3
-reconstructed statement fixtures (see tests/fixtures/fomc/README.md)."""
+"""§5.7 extraction, decision parsing, and vote parsing against real statement pages
+saved from federalreserve.gov (see tests/fixtures/fomc/README.md). Three different
+years and three page generations: 2022 and 2024 (named "Voting for" paragraph) and
+2026 (a "by a 9 – 3 vote" preface that names only dissenters)."""
 
 from __future__ import annotations
 
@@ -8,57 +10,72 @@ from pathlib import Path
 import pytest
 
 from agents.macro.fomc import (
+    extract_minutes,
     extract_statement,
     is_extraction_valid,
+    normalize_text,
     parse_decision,
     parse_votes,
 )
 
 FIXTURES = Path(__file__).parent / "fixtures" / "fomc"
+ALL_STATEMENTS = sorted(p.name for p in FIXTURES.glob("statement_*.html"))
 
 
-def _load(name: str) -> str:
-    return (FIXTURES / name).read_text()
+def _statement(name: str):
+    return extract_statement((FIXTURES / name).read_text())
 
 
-@pytest.fixture
-def jan_statement():
-    return extract_statement(_load("statement_2026_01_28.html"))
-
-
-@pytest.fixture
-def mar_statement():
-    return extract_statement(_load("statement_2026_03_18.html"))
-
-
-@pytest.fixture
-def sep_statement():
-    return extract_statement(_load("statement_2026_09_16.html"))
+def test_at_least_three_years_of_real_fixtures():
+    years = {name.split("_")[1] for name in ALL_STATEMENTS}
+    assert len(years) >= 3
 
 
 # -- extraction ---------------------------------------------------------------
 
 
-def test_extraction_drops_release_time_header(jan_statement):
-    assert "For release at" not in jan_statement.policy_text
+@pytest.mark.parametrize("name", ALL_STATEMENTS)
+def test_extraction_drops_page_chrome(name):
+    text = _statement(name).policy_text
+    assert "For release at" not in text
+    assert "Implementation Note" not in text
+    assert "media inquiries" not in text
+    assert "Share" not in text
+    assert not text[:20].startswith(("January", "June", "July", "September"))  # article__time date
 
 
-def test_extraction_drops_implementation_note_link(jan_statement):
-    assert "Implementation Note" not in jan_statement.policy_text
+@pytest.mark.parametrize("name", ALL_STATEMENTS)
+def test_extraction_is_valid_and_keeps_the_decision_sentence(name):
+    statement = _statement(name)
+    assert is_extraction_valid(statement)
+    assert "target range for the federal funds rate" in statement.policy_text
 
 
-def test_extraction_drops_media_inquiries_footer(jan_statement):
-    assert "media inquiries" not in jan_statement.policy_text
+@pytest.mark.parametrize("name", ALL_STATEMENTS)
+def test_extraction_separates_voting_text(name):
+    statement = _statement(name)
+    assert "Voting for" not in statement.policy_text
+    assert "Voting against" not in statement.policy_text
+    assert "approved the following statement" not in statement.policy_text
+    assert statement.voting_text
 
 
-def test_extraction_separates_voting_paragraph(jan_statement):
-    assert "Voting for" not in jan_statement.policy_text
-    assert jan_statement.voting_text.startswith("Voting for")
+def test_extraction_does_not_glue_words_around_inline_tags():
+    # The 2026-09-16 page has "percentage point<strong> </strong>to 3-3/4<strong> </strong>to 4".
+    text = _statement("statement_2026_09_16.html").policy_text
+    assert "by 1/4 percentage point to 3-3/4 to 4 percent" in text
+    assert "geopolitical developments, domestic spending" in text
 
 
-def test_extraction_keeps_policy_paragraphs(jan_statement):
-    assert "maximum employment" in jan_statement.policy_text
-    assert "target range for the federal funds rate" in jan_statement.policy_text
+def test_extraction_folds_non_breaking_hyphens():
+    # 2022-06-15 writes "1‑1/2" with a non-breaking hyphen.
+    text = _statement("statement_2022_06_15.html").policy_text
+    assert "1-1/2 to 1-3/4 percent" in text
+    assert "‑" not in text
+
+
+def test_extraction_drops_link_only_paragraphs():
+    assert "Plans for Reducing" not in _statement("statement_2022_06_15.html").voting_text
 
 
 def test_extraction_missing_article_returns_empty():
@@ -67,60 +84,47 @@ def test_extraction_missing_article_returns_empty():
     assert statement.voting_text == ""
 
 
-def test_is_extraction_valid_true_for_real_statement(jan_statement):
-    assert is_extraction_valid(jan_statement) is True
-
-
 def test_is_extraction_valid_false_when_too_short():
     statement = extract_statement("<html><body><div id='article'><p>short</p></div></body></html>")
     assert is_extraction_valid(statement) is False
 
 
-# -- decision parsing: hold, cut, fractional ranges ----------------------------
+def test_normalize_text():
+    assert normalize_text("a  b\n c‑d") == "a b c-d"
 
 
-def test_decision_hold_january(jan_statement):
-    decision = parse_decision(jan_statement.policy_text)
-    assert decision.decision == "hold"
-    assert decision.target_range == {"lower": 4.25, "upper": 4.5}
+# -- decision parsing -----------------------------------------------------------
 
 
-def test_decision_cut_september(sep_statement):
-    decision = parse_decision(sep_statement.policy_text)
-    assert decision.decision == "cut"
-    assert decision.target_range == {"lower": 4.0, "upper": 4.25}
+@pytest.mark.parametrize(
+    ("name", "decision", "lower", "upper", "change_bp"),
+    [
+        ("statement_2022_06_15.html", "hike", 1.5, 1.75, None),  # no "by" wording, no previous range
+        ("statement_2024_07_31.html", "hold", 5.25, 5.5, 0),
+        ("statement_2024_09_18.html", "cut", 4.75, 5.0, -50),  # "by 1/2 percentage point"
+        ("statement_2026_06_17.html", "hold", 3.5, 3.75, 0),
+        ("statement_2026_07_29.html", "hold", 3.5, 3.75, 0),
+        ("statement_2026_09_16.html", "hike", 3.75, 4.0, 25),  # "by 1/4 percentage point"
+    ],
+)
+def test_decision_parse_on_real_statements(name, decision, lower, upper, change_bp):
+    parsed = parse_decision(_statement(name).policy_text)
+    assert parsed.decision == decision
+    assert parsed.target_range == {"lower": lower, "upper": upper}
+    assert parsed.change_bp == change_bp
 
 
-def test_decision_change_bp_computed_against_previous_range():
-    previous_range = {"lower": 4.25, "upper": 4.5}
-    decision = parse_decision(
-        "the Committee decided to lower the target range for the federal funds rate to 4 to 4-1/4 percent.",
-        previous_range=previous_range,
+def test_decision_change_bp_prefers_previous_range():
+    text = _statement("statement_2022_06_15.html").policy_text
+    parsed = parse_decision(text, previous_range={"lower": 0.75, "upper": 1.0})
+    assert parsed.change_bp == 75
+
+
+def test_decision_bare_fraction_lower_bound():
+    parsed = parse_decision(
+        "the Committee decided to raise the target range for the federal funds rate to 3/4 to 1 percent"
     )
-    assert decision.change_bp == -25
-
-
-def test_decision_change_bp_none_without_previous_range(sep_statement):
-    decision = parse_decision(sep_statement.policy_text)
-    assert decision.change_bp is None
-
-
-def test_decision_hold_zero_change_bp():
-    previous_range = {"lower": 4.25, "upper": 4.5}
-    decision = parse_decision(
-        "the Committee decided to maintain the target range for the federal funds rate "
-        "at 4-1/4 to 4-1/2 percent.",
-        previous_range=previous_range,
-    )
-    assert decision.change_bp == 0
-
-
-def test_decision_hike_verb_and_whole_number_range():
-    decision = parse_decision(
-        "the Committee decided to raise the target range for the federal funds rate to 5 to 5-1/4 percent."
-    )
-    assert decision.decision == "hike"
-    assert decision.target_range == {"lower": 5.0, "upper": 5.25}
+    assert parsed.target_range == {"lower": 0.75, "upper": 1.0}
 
 
 def test_decision_no_match_raises():
@@ -128,21 +132,45 @@ def test_decision_no_match_raises():
         parse_decision("The Committee discussed the economic outlook at length.")
 
 
-# -- vote parsing: unanimous and with a dissent --------------------------------
+# -- vote parsing -----------------------------------------------------------------
 
 
-def test_votes_unanimous_no_dissent(jan_statement):
-    votes = parse_votes(jan_statement.voting_text)
-    assert votes.for_count == 11  # Powell + Williams (named) + nine other members
+def test_votes_named_list_unanimous():
+    votes = parse_votes(_statement("statement_2024_07_31.html").voting_text)
+    assert votes.for_count == 12
     assert votes.against == []
 
 
-def test_votes_with_one_dissent(sep_statement):
-    votes = parse_votes(sep_statement.voting_text)
-    assert votes.for_count == 10  # Powell + Williams (named) + eight other members
-    assert len(votes.against) == 1
-    assert votes.against[0]["name"] == "Michael J. Reeves"
-    assert "maintain the target range" in votes.against[0]["preferred"]
+def test_votes_named_list_with_one_dissent():
+    votes = parse_votes(_statement("statement_2024_09_18.html").voting_text)
+    assert votes.for_count == 11
+    assert votes.against == [
+        {
+            "name": "Michelle W. Bowman",
+            "preferred": "to lower the target range for the federal funds rate by 1/4 percentage point "
+            "at this meeting",
+        }
+    ]
+
+
+def test_votes_2022_dissent_with_decimal_in_preference():
+    votes = parse_votes(_statement("statement_2022_06_15.html").voting_text)
+    assert votes.for_count == 10
+    assert [d["name"] for d in votes.against] == ["Esther L. George"]
+    assert "by 0.5 percentage point" in votes.against[0]["preferred"]
+
+
+def test_votes_tally_preface_unanimous():
+    votes = parse_votes(_statement("statement_2026_09_16.html").voting_text)
+    assert votes.for_count == 12
+    assert votes.against == []
+
+
+def test_votes_tally_preface_with_three_dissents():
+    votes = parse_votes(_statement("statement_2026_07_29.html").voting_text)
+    assert votes.for_count == 9
+    assert [d["name"] for d in votes.against] == ["Beth M. Hammack", "Neel Kashkari", "Lorie K. Logan"]
+    assert all("raise the target range" in d["preferred"] for d in votes.against)
 
 
 def test_votes_empty_text_returns_zero_and_no_dissents():
@@ -151,12 +179,15 @@ def test_votes_empty_text_returns_zero_and_no_dissents():
     assert votes.against == []
 
 
-def test_votes_multiple_dissents_parsed_as_separate_entries():
-    text = (
-        "Voting for the monetary policy action were Jerome H. Powell, Chair; and ten other members. "
-        "Voting against this action were Alice Smith and Bob Jones, who preferred a 25 basis point cut."
-    )
-    votes = parse_votes(text)
-    names = {d["name"] for d in votes.against}
-    assert names == {"Alice Smith", "Bob Jones"}
-    assert all(d["preferred"] == "a 25 basis point cut" for d in votes.against)
+# -- minutes ----------------------------------------------------------------------
+
+
+def test_extract_minutes_real_page():
+    text = extract_minutes((FIXTURES / "minutes_2026_07_29.html").read_text())
+    assert len(text.split()) > 3000
+    assert "Developments in Financial Markets and Open Market Operations" in text
+    assert "Return to text" not in text
+
+
+def test_extract_minutes_missing_article():
+    assert extract_minutes("<html><body></body></html>") == ""

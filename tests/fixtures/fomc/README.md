@@ -1,21 +1,20 @@
-# FOMC statement fixtures — RECONSTRUCTED, not live captures
+# Federal Reserve fixtures — real pages, saved 2026-09-26
 
-This environment's network policy blocks `www.federalreserve.gov` (confirmed: a direct request gets a
-`403` at the egress proxy — see `STATUS.md`), so these three statement pages could not be fetched live as
-the spec asks. They are **hand-written to faithfully match the real page structure and the Fed's real
-statement language patterns** (the `div#article` container, the release-time header, the policy paragraphs,
-the voting paragraph, the "Implementation Note" and "For media inquiries" boilerplate the extractor must
-drop) — but they are reconstructions, not captures, and the exact wording of any real 2026 statement is
-guesswork.
+Saved verbatim from `www.federalreserve.gov` (the previous hand-reconstructed pages are gone). Tests parse
+them offline; nothing here is fetched during `pytest`.
 
-**Once network access is broadened, replace these three files** with real pages fetched from
-`https://www.federalreserve.gov/newsevents/pressreleases/monetaryYYYYMMDDa.htm` (three different years, per
-SPEC_MACRO.md §11's `test_fomc_parse.py` requirement), and re-run `uv run pytest tests/test_fomc.py`. The
-parsing/diff logic itself doesn't need to change unless a real page's structure differs from what's
-modeled here.
+| File | Source | Used for |
+|---|---|---|
+| `statement_2022_06_15.html` | `newsevents/pressreleases/monetary20220615a.htm` | 75 bp hike, named "Voting for" list, one dissent (George) whose preference contains a decimal; non-breaking hyphens in "1‑1/2" |
+| `statement_2024_07_31.html` | `monetary20240731a.htm` | Hold at 5-1/4 to 5-1/2, unanimous 12 named votes; the "before" side of the 2024 cut diff |
+| `statement_2024_09_18.html` | `monetary20240918a.htm` | 50 bp cut ("by 1/2 percentage point"), one dissent (Bowman) |
+| `statement_2026_06_17.html` | `monetary20260617a.htm` | 2026 page layout: "approved ... by a 12 – 0 vote:" preface instead of a named list; near-identical to July |
+| `statement_2026_07_29.html` | `monetary20260729a.htm` | Hold, "9 – 3 vote", three named dissenters preferring a hike |
+| `statement_2026_09_16.html` | `monetary20260916a.htm` | 25 bp hike with `<strong> </strong>` inside the decision sentence (the extractor must not glue words) |
+| `minutes_2026_07_29.html` | `monetarypolicy/fomcminutes20260729.htm` | Minutes text extraction (footnotes dropped) |
+| `fomccalendars.html` | `monetarypolicy/fomccalendars.htm` | Meeting-calendar parse; checked against `config/fomc_dates.toml` |
+| `press_monetary.xml` | `feeds/press_monetary.xml` | RSS discovery of statements and FOMC minutes (15 items) |
 
-| File | Models |
-|---|---|
-| `statement_2026_01_28.html` | A hold decision, target range 4.25–4.50%, unanimous vote. |
-| `statement_2026_03_18.html` | A hold decision, same range, near-identical language to January (one small wording change) — for testing an "unchanged"/minor tone diff. |
-| `statement_2026_09_16.html` | A 25bp cut to 4.00–4.25%, with one dissent preferring to hold, and substantially reworded economic-outlook language — for testing decision/vote parsing and a larger diff. |
+Three different years (2022, 2024, 2026) and two page generations, per SPEC_MACRO.md §3/§11. If the Fed
+changes its layout again, save a fresh page here and add it to the parametrized tests in
+`tests/test_fomc.py`.

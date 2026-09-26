@@ -18,6 +18,8 @@ secondary = ["mom_pct"]
 good_direction = "down"
 high_priority = true
 thresholds = [3.0, 2.5]
+units = "index"
+level_decimals = 1
 
 [[indicator]]
 id = "core_cpi"
@@ -30,6 +32,8 @@ secondary = ["mom_pct", "ann_3m_pct"]
 good_direction = "down"
 high_priority = false
 thresholds = [3.0, 2.5]
+units = "index"
+level_decimals = 1
 
 [[indicator]]
 id = "pce"
@@ -42,6 +46,8 @@ secondary = []
 good_direction = "down"
 high_priority = false
 thresholds = [3.0, 2.5]
+units = "index"
+level_decimals = 1
 
 [[indicator]]
 id = "core_pce"
@@ -54,6 +60,8 @@ secondary = ["ann_3m_pct"]
 good_direction = "down"
 high_priority = true
 thresholds = [3.0, 2.5, 2.0]
+units = "index"
+level_decimals = 1
 
 [[indicator]]
 id = "breakeven_5y"
@@ -66,6 +74,8 @@ secondary = []
 good_direction = "neutral"
 high_priority = false
 thresholds = []
+units = "percent"
+level_decimals = 2
 
 # -- Labor --------------------------------------------------------------------
 
@@ -80,6 +90,8 @@ secondary = ["change_pp"]
 good_direction = "down"
 high_priority = true
 thresholds = [4.0, 4.5, 5.0]
+units = "percent"
+level_decimals = 1
 
 [[indicator]]
 id = "payrolls"
@@ -93,6 +105,8 @@ units_scale = "thousands"
 good_direction = "up"
 high_priority = true
 thresholds = []
+units = "thousands"
+level_decimals = 0
 
 [[indicator]]
 id = "claims"
@@ -105,6 +119,8 @@ secondary = ["avg_4w"]
 good_direction = "down"
 high_priority = false
 thresholds = []
+units = "count"
+level_decimals = 0
 
 [[indicator]]
 id = "jolts"
@@ -114,10 +130,12 @@ fred_series = "JTSJOL"
 frequency = "monthly"
 primary = "level"
 secondary = []
-units_scale = "millions"
 good_direction = "neutral"
 high_priority = false
 thresholds = []
+units = "millions"
+level_decimals = 1
+level_divisor = 1000.0         # FRED publishes thousands; shown in millions
 
 [[indicator]]
 id = "ahe"
@@ -130,6 +148,8 @@ secondary = []
 good_direction = "neutral"
 high_priority = false
 thresholds = []
+units = "dollars"
+level_decimals = 2
 
 # -- Growth ---------------------------------------------------------------
 
@@ -144,6 +164,8 @@ secondary = []
 good_direction = "up"
 high_priority = true
 thresholds = [0.0]
+units = "percent"
+level_decimals = 1
 
 [[indicator]]
 id = "retail_sales"
@@ -156,6 +178,8 @@ secondary = ["yoy_pct"]
 good_direction = "up"
 high_priority = false
 thresholds = []
+units = "index"
+level_decimals = 1
 
 [[indicator]]
 id = "industrial_production"
@@ -168,6 +192,8 @@ secondary = ["yoy_pct"]
 good_direction = "up"
 high_priority = false
 thresholds = []
+units = "index"
+level_decimals = 1
 
 # -- Rates --------------------------------------------------------------------
 
@@ -182,6 +208,8 @@ secondary = []
 good_direction = "neutral"
 high_priority = false
 thresholds = []
+units = "percent"
+level_decimals = 2
 
 [[indicator]]
 id = "fed_funds_lower"
@@ -194,6 +222,8 @@ secondary = []
 good_direction = "neutral"
 high_priority = false
 thresholds = []
+units = "percent"
+level_decimals = 2
 
 [[indicator]]
 id = "effr"
@@ -206,6 +236,8 @@ secondary = []
 good_direction = "neutral"
 high_priority = false
 thresholds = []
+units = "percent"
+level_decimals = 2
 
 [[indicator]]
 id = "treasury_3m"
@@ -218,6 +250,8 @@ secondary = ["change_pp"]
 good_direction = "neutral"
 high_priority = false
 thresholds = []
+units = "percent"
+level_decimals = 2
 
 [[indicator]]
 id = "treasury_2y"
@@ -230,6 +264,8 @@ secondary = ["change_pp"]
 good_direction = "neutral"
 high_priority = false
 thresholds = []
+units = "percent"
+level_decimals = 2
 
 [[indicator]]
 id = "treasury_5y"
@@ -242,6 +278,8 @@ secondary = ["change_pp"]
 good_direction = "neutral"
 high_priority = false
 thresholds = []
+units = "percent"
+level_decimals = 2
 
 [[indicator]]
 id = "treasury_10y"
@@ -254,6 +292,8 @@ secondary = ["change_pp"]
 good_direction = "neutral"
 high_priority = true
 thresholds = [4.0, 5.0]
+units = "percent"
+level_decimals = 2
 
 [[indicator]]
 id = "treasury_30y"
@@ -266,6 +306,8 @@ secondary = ["change_pp"]
 good_direction = "neutral"
 high_priority = false
 thresholds = []
+units = "percent"
+level_decimals = 2
 
 [[indicator]]
 id = "curve_10y2y"
@@ -278,6 +320,8 @@ secondary = []
 good_direction = "neutral"
 high_priority = true
 thresholds = [0.0]
+units = "pp"
+level_decimals = 2
 
 [[indicator]]
 id = "curve_10y3m"
@@ -290,6 +334,8 @@ secondary = []
 good_direction = "neutral"
 high_priority = false
 thresholds = [0.0]
+units = "pp"
+level_decimals = 2
 
 [[indicator]]
 id = "mortgage_30y"
@@ -302,6 +348,8 @@ secondary = ["change_pp"]
 good_direction = "neutral"
 high_priority = false
 thresholds = []
+units = "percent"
+level_decimals = 2
 
 # -- Sentiment ------------------------------------------------------------
 
@@ -316,3 +364,5 @@ secondary = ["change_pp"]
 good_direction = "up"
 high_priority = false
 thresholds = []
+units = "index"
+level_decimals = 1

@@ -1,51 +1,63 @@
 {
   "status": "PROVISIONAL",
-  "note": "These are MY proposed tone-shift labels for real historical FOMC meeting pairs, for the §11 'FOMC tone' eval (needs >=4 pairs: one cut, one hike, one hold with a notable language change, one near-identical pair). I could not fetch the real statement text to build fixtures from (federalreserve.gov is blocked by this environment's network policy — see STATUS.md), so these labels and their reasoning come from my own training-data knowledge of what actually happened at each meeting, not a re-read of the verbatim text. Treat the dates and decisions as reliable (they're well-documented public record); treat the specific wording quoted in `reasoning` as approximate recollection, not a verbatim quote. Before this eval is trusted: fetch the real statement pairs from https://www.federalreserve.gov/newsevents/pressreleases/monetaryYYYYMMDDa.htm for each date below, re-derive the diff with agents.macro.fomc.diff_statements, and confirm or correct these labels against the actual text.",
+  "note": "Tone-shift labels for the §11 'FOMC tone' eval, re-derived on 2026-09-26 from the REAL statement text (saved in evals/macro/fixtures/fomc/, extracted from federalreserve.gov) and the code-computed sentence diff, not from memory. They remain PROVISIONAL until a human confirms them: tone is a judgment call, and pairs marked confidence 'low' are genuinely arguable. Two labels changed from the previous session's memory-based proposal (2023-12-13->2024-01-31 and 2024-06-12->2024-07-31, see `changed_from`); the ambiguous 2024-09-18->2024-11-07 pair was dropped and the 2026 hike and near-identical pairs added. Coverage per §11: a cut, a hike (two), holds with notable language changes (two), and a near-identical pair that must be 'unchanged'.",
   "pairs": [
     {
       "previous_date": "2024-07-31",
       "new_date": "2024-09-18",
       "decision": "cut",
       "change_bp": -50,
-      "proposed_tone_shift": "more_dovish",
-      "reasoning": "The July 2024 statement held rates and described the labor market as gradually cooling while still emphasizing inflation risk. The September 2024 statement delivered the cycle's first cut, and a larger-than-typical 50bp move, with language acknowledging that job gains had slowed and the Committee had 'gained greater confidence' inflation was moving sustainably toward 2%. That combination (first cut, 50bp size, softer labor language) is a clear dovish shift.",
-      "confidence": "high on direction and decision size (public record); moderate on exact phrasing recalled"
+      "label": "more_dovish",
+      "reasoning": "First cut of the cycle and a 50 bp one. Edits: 'Job gains have moderated' -> 'have slowed' [1]; adds 'gained greater confidence that inflation is moving sustainably toward 2 percent' [5]; removes the 'does not expect it will be appropriate to reduce the target range' guardrail [9]; the commitment now reads 'supporting maximum employment and returning inflation' [11].",
+      "confidence": "high"
     },
     {
       "previous_date": "2022-03-16",
       "new_date": "2022-05-04",
       "decision": "hike",
-      "change_bp": 25,
-      "proposed_tone_shift": "more_hawkish",
-      "reasoning": "March 2022 was the first hike of that cycle (25bp) amid rising but not yet fully panicked inflation concern. By May 2022 inflation had continued to run hot and the Committee stepped up to a 50bp hike (the first of that size since 2000), with statement language explicitly framing the Committee as 'highly attentive to inflation risks.' Larger hike + more emphatic risk language reads as more hawkish.",
-      "confidence": "high on decision/size (public record); moderate on exact phrasing recalled"
+      "change_bp": 50,
+      "label": "more_hawkish",
+      "reasoning": "50 bp hike after 25 bp. Adds 'The Committee is highly attentive to inflation risks.' [8]; balance-sheet language moves from 'expects to begin reducing' to 'decided to begin reducing ... on June 1' [12]; inflation-pressure language firmed from 'likely to create' to 'are creating additional upward pressure on inflation' [5].",
+      "confidence": "high"
     },
     {
-      "previous_date": "2023-12-13",
-      "new_date": "2024-01-31",
-      "decision": "hold",
-      "change_bp": 0,
-      "proposed_tone_shift": "more_hawkish",
-      "reasoning": "December 2023 was read as a dovish pivot: the statement (and the press conference) opened the door to cuts, and markets rallied hard on it. The January 2024 statement, while still a hold at the same rate, pushed back on the pace of easing by adding explicit language that the Committee 'does not expect it will be appropriate to reduce the target range until it has gained greater confidence' inflation is headed sustainably to 2% — a walk-back relative to December's more optimistic tone, not relative to some hawkish baseline.",
-      "confidence": "moderate — this pair is the most interpretation-dependent of the five; the 'shift' is relative to market read of December, not a change in the policy rate"
+      "previous_date": "2026-07-29",
+      "new_date": "2026-09-16",
+      "decision": "hike",
+      "change_bp": 25,
+      "label": "more_hawkish",
+      "reasoning": "25 bp hike after a 9-3 hold where three members preferred a hike. Decision sentence changes from maintain to raise [0]; adds 'Today's policy action will support a timelier return to the Committee's 2 percent goal.' [9]; inflation described bluntly as 'Inflation remains elevated.' [8].",
+      "confidence": "high"
     },
     {
       "previous_date": "2024-06-12",
       "new_date": "2024-07-31",
       "decision": "hold",
       "change_bp": 0,
-      "proposed_tone_shift": "unchanged",
-      "reasoning": "Both meetings held the target range steady with very similar language about waiting for 'greater confidence' on inflation before easing; no major new language change I recall between these two consecutive holds. Included as the near-identical pair.",
-      "confidence": "moderate — recalled as materially similar statements, but exact sentence-level wording not verified"
+      "label": "more_dovish",
+      "reasoning": "Hold, but every edit softens: 'Job gains have remained strong' -> 'have moderated, and the unemployment rate has moved up' [1]; inflation 'remains elevated' -> 'remains somewhat elevated' [2]; 'modest' -> 'some further progress' [3]; 'remains highly attentive to inflation risks' -> 'attentive to the risks to both sides of its dual mandate' [6].",
+      "confidence": "high",
+      "changed_from": "unchanged (memory-based guess that these were near-identical; the real diff has 5 dovish edits)"
     },
     {
-      "previous_date": "2024-09-18",
-      "new_date": "2024-11-07",
-      "decision": "cut",
-      "change_bp": -25,
-      "proposed_tone_shift": "unchanged",
-      "reasoning": "November 2024 continued the cutting cycle begun in September, but at the more typical 25bp pace and with broadly similar language reaffirming confidence in the inflation trajectory and a gradually cooling but solid labor market — a continuation of September's stance rather than a further shift in tone.",
-      "confidence": "moderate"
+      "previous_date": "2023-12-13",
+      "new_date": "2024-01-31",
+      "decision": "hold",
+      "change_bp": 0,
+      "label": "more_dovish",
+      "reasoning": "Hold. Drops the tightening bias ('In determining the extent of any additional policy firming...' [10]) and the credit-conditions paragraph [3-5]; adds 'risks ... are moving into better balance' [11] and frames the next move as 'adjustments to the target range' [13]. Against that it adds 'does not expect it will be appropriate to reduce the target range until it has gained greater confidence' [14], a hawkish guardrail on cuts that the December text never discussed. Net textual shift judged dovish (from a hiking bias to a cutting discussion); the market read at the time was hawkish relative to expectations, which is why this pair is arguable.",
+      "confidence": "low",
+      "changed_from": "more_hawkish (memory-based, relative to the market's read of December rather than to the December text)"
+    },
+    {
+      "previous_date": "2026-06-17",
+      "new_date": "2026-07-29",
+      "decision": "hold",
+      "change_bp": 0,
+      "label": "unchanged",
+      "reasoning": "Near-identical pair: the only edit is 'The Committee reaffirmed its policy of maintaining ample reserves' -> 'The Committee is continuing its policy of maintaining ample reserves' [1]. (The 9-3 vote with three members preferring a hike is not statement language.) §11 requires this pair to be 'unchanged'.",
+      "confidence": "high",
+      "near_identical": true
     }
   ]
 }

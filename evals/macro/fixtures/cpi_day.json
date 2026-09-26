@@ -2,22 +2,57 @@
   "scenario": "CPI day",
   "as_of": "2026-09-11",
   "context": {
-    "regimes": {"inflation": {"label": "Cooling", "detail": "Core PCE 2.8% YoY; 2.4% 3-mo annualized"}},
-    "fed_target_range": {"lower": 4.0, "upper": 4.25}
+    "regimes": {
+      "inflation": "Cooling",
+      "policy": "Holding"
+    },
+    "fed_target_range": {
+      "lower": 4.0,
+      "upper": 4.25
+    },
+    "inflation_target_pct": 2
   },
   "events": [
     {
-      "id": "new_release:cpi:2026-08",
+      "id": "new_release:cpi:2026-08-01",
       "type": "new_release",
       "priority": 80,
-      "facts": {"yoy": 2.9, "prior_yoy": 2.7, "mom": 0.3}
+      "facts": {
+        "indicator": "CPI (all items)",
+        "period": "2026-08-01",
+        "units": "percent",
+        "yoy": 2.9,
+        "prior_yoy": 2.7,
+        "mom": 0.3
+      }
     },
     {
-      "id": "new_release:core_cpi:2026-08",
+      "id": "new_release:core_cpi:2026-08-01",
       "type": "new_release",
       "priority": 60,
-      "facts": {"yoy": 3.1, "prior_yoy": 3.1, "mom": 0.2}
+      "facts": {
+        "indicator": "Core CPI",
+        "period": "2026-08-01",
+        "units": "percent",
+        "yoy": 3.1,
+        "prior_yoy": 3.1,
+        "mom": 0.2,
+        "ann_3m": 3.3
+      }
+    },
+    {
+      "id": "threshold_cross:cpi:2.5:2026-08-01",
+      "type": "threshold_cross",
+      "priority": 70,
+      "facts": {
+        "indicator": "CPI (all items)",
+        "units": "percent",
+        "threshold": 2.5,
+        "prior": 2.4,
+        "new": 2.9,
+        "direction": "up"
+      }
     }
   ],
-  "top_priority_event_id": "new_release:cpi:2026-08"
+  "top_priority_event_id": "new_release:cpi:2026-08-01"
 }

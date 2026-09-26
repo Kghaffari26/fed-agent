@@ -54,9 +54,7 @@ def delayed_event(indicator_id: str, *, scheduled_release: date) -> Event:
     )
 
 
-def new_release_event(
-    indicator_id: str, *, period: date, high_priority: bool, facts: dict
-) -> Event:
+def new_release_event(indicator_id: str, *, period: date, high_priority: bool, facts: dict) -> Event:
     priority = HIGH_PRIORITY_NEW_RELEASE if high_priority else BASE_PRIORITY["new_release"]
     return Event(
         id=f"new_release:{indicator_id}:{period.isoformat()}",

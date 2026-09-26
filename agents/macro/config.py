@@ -14,10 +14,10 @@ from pydantic import BaseModel, Field, field_validator
 
 Frequency = Literal["daily", "weekly", "monthly", "quarterly"]
 GoodDirection = Literal["up", "down", "neutral"]
-Transform = Literal[
-    "yoy_pct", "mom_pct", "mom_diff", "ann_3m_pct", "avg_3", "avg_4w", "change_pp", "level"
-]
+Transform = Literal["yoy_pct", "mom_pct", "mom_diff", "ann_3m_pct", "avg_3", "avg_4w", "change_pp", "level"]
 UnitsScale = Literal["thousands", "millions", "billions"]
+# How the indicator's *level* is displayed (drives rounding and §6 `format`s).
+Units = Literal["percent", "pp", "count", "thousands", "millions", "index", "dollars"]
 
 DEFAULT_MACRO_TOML = Path("config/macro.toml")
 DEFAULT_FOMC_DATES_TOML = Path("config/fomc_dates.toml")
@@ -43,6 +43,13 @@ class IndicatorConfig(BaseModel):
     good_direction: GoodDirection
     high_priority: bool = False
     thresholds: list[float] = Field(default_factory=list)
+    units: Units = "percent"
+    level_decimals: int = 2
+    level_divisor: float = 1.0  # e.g. 1000 to show JOLTS (FRED: thousands) in millions
+
+    @property
+    def source_url(self) -> str:
+        return f"https://fred.stlouisfed.org/series/{self.fred_series}"
 
 
 class MacroConfig(BaseModel):

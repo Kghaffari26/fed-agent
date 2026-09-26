@@ -23,7 +23,7 @@ def test_headline_fomc_hold():
     )
     headline = headline_for_event(e)
     assert "held rates steady" in headline
-    assert "4.0-4.25%" in headline.replace("–", "-")
+    assert "4.00-4.25%" in headline.replace("–", "-")
 
 
 def test_headline_fomc_cut():
