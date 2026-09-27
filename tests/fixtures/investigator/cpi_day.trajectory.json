@@ -1,0 +1,108 @@
+{
+  "version": 1,
+  "model": "claude-sonnet-5",
+  "responses": [
+    {
+      "request": {
+        "tools": [
+          "compare_to_prior_cycles",
+          "get_components",
+          "get_fomc_context",
+          "get_series",
+          "percentile_vs_history",
+          "finish"
+        ],
+        "n_messages": 1
+      },
+      "content": [
+        {
+          "text": "I'll investigate the CPI release by examining components and historical context.",
+          "type": "text"
+        },
+        {
+          "id": "toolu_01HP3Hh5vDsqzxknp4q3hatz",
+          "caller": {
+            "type": "direct"
+          },
+          "input": {
+            "release": "cpi"
+          },
+          "name": "get_components",
+          "type": "tool_use"
+        },
+        {
+          "id": "toolu_01HKVJQESxETbPKhgFJtq5PP",
+          "caller": {
+            "type": "direct"
+          },
+          "input": {
+            "id": "cpi",
+            "range": "2y"
+          },
+          "name": "get_series",
+          "type": "tool_use"
+        },
+        {
+          "id": "toolu_01731RrZLdZP7Cf31XfcRpNQ",
+          "caller": {
+            "type": "direct"
+          },
+          "input": {
+            "id": "cpi",
+            "value": 3.4
+          },
+          "name": "percentile_vs_history",
+          "type": "tool_use"
+        }
+      ],
+      "stop_reason": "tool_use",
+      "usage": {
+        "input_tokens": 2,
+        "output_tokens": 212,
+        "cache_creation_input_tokens": 2308,
+        "cache_read_input_tokens": 0
+      }
+    },
+    {
+      "request": {
+        "tools": [
+          "compare_to_prior_cycles",
+          "get_components",
+          "get_fomc_context",
+          "get_series",
+          "percentile_vs_history",
+          "finish"
+        ],
+        "n_messages": 3
+      },
+      "content": [
+        {
+          "id": "toolu_01X2B4VSxXaYwKTWWzqJBdP9",
+          "caller": {
+            "type": "direct"
+          },
+          "input": {
+            "analysis": "Headline CPI rose 3.4% YoY (from 3.3% prior), up 0.4% MoM, sitting at the 72nd percentile of its 10-year range. Energy was the main driver, up 16.0% YoY with a 2.1% MoM jump, while shelter eased to 3.0% YoY (0.3% MoM) and food slowed to 2.6% YoY. Core goods (0.7% YoY) and core services (3.0% YoY, unchanged) were comparatively muted, indicating the acceleration was concentrated in energy prices rather than broad-based core inflation.",
+            "cited_series": [
+              "cpi",
+              "cpi_energy",
+              "cpi_shelter",
+              "cpi_food",
+              "cpi_core_goods",
+              "cpi_core_services"
+            ]
+          },
+          "name": "finish",
+          "type": "tool_use"
+        }
+      ],
+      "stop_reason": "tool_use",
+      "usage": {
+        "input_tokens": 2,
+        "output_tokens": 313,
+        "cache_creation_input_tokens": 1278,
+        "cache_read_input_tokens": 2308
+      }
+    }
+  ]
+}

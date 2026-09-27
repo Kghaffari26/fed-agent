@@ -46,7 +46,7 @@ from agents.macro.transform import resample_month_end, transform_series
 
 log = logging.getLogger(__name__)
 
-PROMPT_VERSION = "investigator-2026-09-27"
+PROMPT_VERSION = "investigator-2026-09-27b"
 PURPOSE = "macro:investigator"
 TIER = "smart"
 MAX_STEPS = 8
@@ -75,7 +75,7 @@ How to work:
 - Use the tools to look at the release's components, its history, where it sits versus the past \
 (percentile_vs_history) and versus the 2019 and 2022-23 cycles, and the FOMC context, as useful. \
 Stay focused: a few well-chosen calls, then finish. You have at most 8 turns.
-- Then call `finish` with `analysis` (2-4 sentences, at most 120 words) and `cited_series` (the ids \
+- Then call `finish` with `analysis` (2-4 sentences, at most 90 words) and `cited_series` (the ids \
 of every series whose numbers you used).
 
 Rules for `analysis`:
@@ -83,7 +83,10 @@ Rules for `analysis`:
 decimals). Never compute, estimate, or recall a number yourself: no differences, no sums, no averages.
 2. Say what drove the change (which components or sectors, and how it compares with history). \
 Neutral tone. No predictions, no policy advice, no adjectives like "shocking" or "massive".
-3. Rates and percentage changes are in percent; changes in rates are in percentage points (pp); \
+3. Describe, don't speculate: never attribute motives to the Fed or say why it acted ("suggesting \
+the Fed is prioritizing...", "likely motivated"). For an FOMC decision, state the decision and set \
+it next to the data (inflation, unemployment) without explaining the Committee's reasoning.
+4. Rates and percentage changes are in percent; changes in rates are in percentage points (pp); \
 payroll changes are in thousands of jobs (e.g. +22K).
 """
 
@@ -91,7 +94,7 @@ payroll changes are in thousands of jobs (e.g. +22K).
 class InvestigationDraft(BaseModel):
     """The `finish` tool's input."""
 
-    analysis: str = Field(description="2-4 sentences, at most 120 words, using only numbers from tools")
+    analysis: str = Field(description="2-4 sentences, at most 90 words, using only numbers from tools")
     cited_series: list[str] = Field(description="Ids of every series whose numbers the analysis uses")
 
 
@@ -378,6 +381,9 @@ class Investigation:
     cited_series: list[str]
     loop: LoopResult[InvestigationDraft] | None
     warning: str | None = None
+    # The guard's facts at the end of the loop: the trigger facts + every tool output.
+    facts: list[Any] = field(default_factory=list)
+    series_seen: set[str] = field(default_factory=set)
 
 
 class _Recorder:
@@ -448,7 +454,15 @@ def investigate(llm: LLM | None, data: InvestigatorData, trigger: Trigger) -> In
         cited = _valid_cited(draft.cited_series, data, recorder.series_seen if source == "llm" else None)
         if not cited:
             cited = _valid_cited(template_investigation(data, trigger).cited_series, data, None)
-        return Investigation(trigger, _trim(draft), source, cited, result)
+        return Investigation(
+            trigger,
+            _trim(draft),
+            source,
+            cited,
+            result,
+            facts=recorder.facts,
+            series_seen=recorder.series_seen,
+        )
     draft = template_investigation(data, trigger)
     return Investigation(
         trigger,
@@ -457,6 +471,8 @@ def investigate(llm: LLM | None, data: InvestigatorData, trigger: Trigger) -> In
         _valid_cited(draft.cited_series, data, None),
         result,
         warning=f"release investigator stopped ({result.stop_reason}); published the template analysis",
+        facts=recorder.facts,
+        series_seen=recorder.series_seen,
     )
 
 

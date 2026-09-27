@@ -196,6 +196,7 @@ def good_minutes(prompt: dict) -> dict:
 
 
 RESPONDERS: dict[str, Callable[[dict], dict]] = {
+    "JudgeVerdict": lambda prompt: {"reasoning": "Specific and neutral.", "score": 4},
     "BriefDraft": good_brief,
     "FomcReadDraft": good_fomc_read,
     "MinutesDraft": good_minutes,
@@ -209,7 +210,11 @@ class FakeMessages:
 
     def parse(self, *, output_format, **params):
         self.calls.append({"output_format": output_format.__name__, **params})
-        prompt = json.loads(params["messages"][0]["content"])
+        content = params["messages"][0]["content"]
+        try:
+            prompt = json.loads(content)
+        except json.JSONDecodeError:  # e.g. the eval LLM judge's rubric prompt
+            prompt = {"text": content}
         payload = self.responders[output_format.__name__](prompt)
         return SimpleNamespace(
             usage=SimpleNamespace(

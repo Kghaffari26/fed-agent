@@ -13,12 +13,30 @@ def test_loads_real_macro_toml_with_all_spec_indicators():
     ids = {ind.id for ind in config.indicators}
     # one per row of SPEC_MACRO.md §2
     expected = {
-        "cpi", "core_cpi", "pce", "core_pce", "breakeven_5y",
-        "unrate", "payrolls", "claims", "jolts", "ahe",
-        "gdp", "retail_sales", "industrial_production",
-        "fed_funds_upper", "fed_funds_lower", "effr",
-        "treasury_3m", "treasury_2y", "treasury_5y", "treasury_10y", "treasury_30y",
-        "curve_10y2y", "curve_10y3m", "mortgage_30y",
+        "cpi",
+        "core_cpi",
+        "pce",
+        "core_pce",
+        "breakeven_5y",
+        "unrate",
+        "payrolls",
+        "claims",
+        "jolts",
+        "ahe",
+        "gdp",
+        "retail_sales",
+        "industrial_production",
+        "fed_funds_upper",
+        "fed_funds_lower",
+        "effr",
+        "treasury_3m",
+        "treasury_2y",
+        "treasury_5y",
+        "treasury_10y",
+        "treasury_30y",
+        "curve_10y2y",
+        "curve_10y3m",
+        "mortgage_30y",
         "umich_sentiment",
     }
     assert ids == expected
@@ -56,9 +74,17 @@ def test_indicators_by_group():
     config = load_macro_config(DEFAULT_MACRO_TOML)
     rates = config.indicators_by_group("rates")
     assert {ind.id for ind in rates} == {
-        "fed_funds_upper", "fed_funds_lower", "effr",
-        "treasury_3m", "treasury_2y", "treasury_5y", "treasury_10y", "treasury_30y",
-        "curve_10y2y", "curve_10y3m", "mortgage_30y",
+        "fed_funds_upper",
+        "fed_funds_lower",
+        "effr",
+        "treasury_3m",
+        "treasury_2y",
+        "treasury_5y",
+        "treasury_10y",
+        "treasury_30y",
+        "curve_10y2y",
+        "curve_10y3m",
+        "mortgage_30y",
     }
 
 

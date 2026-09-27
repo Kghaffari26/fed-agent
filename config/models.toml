@@ -8,9 +8,9 @@
 [tiers.smart]
 thinking = "disabled"
 
-# §7.1 asks for temperature 0. claude-sonnet-5 rejects sampling parameters, so the
-# smart tier leaves it unset (agents-core sends none unless a tier sets one, since
-# v0.2.0). The fast tier (claude-haiku-4-5, used only by the eval LLM judge) accepts
-# it: 0 keeps the judge's scores stable run to run.
-[tiers.fast]
-temperature = 0
+
+# §7.1 asks for temperature 0. agents-core v0.2.0 added per-tier `temperature`, but
+# it can't be used here: claude-sonnet-5 (smart) rejects sampling parameters, and the
+# installed anthropic SDK's `messages.parse` (every structured call, incl. the eval
+# judge on the fast tier) doesn't accept `temperature` at all (TypeError, seen live on
+# 2026-09-27). Left unset on both tiers; recorded in STATUS.md as an agents-core gap.

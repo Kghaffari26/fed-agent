@@ -1,0 +1,107 @@
+{
+  "version": 1,
+  "model": "claude-sonnet-5",
+  "responses": [
+    {
+      "request": {
+        "tools": [
+          "compare_to_prior_cycles",
+          "get_components",
+          "get_fomc_context",
+          "get_series",
+          "percentile_vs_history",
+          "finish"
+        ],
+        "n_messages": 1
+      },
+      "content": [
+        {
+          "text": "I'll investigate this payrolls release by looking at the components, history, and context.",
+          "type": "text"
+        },
+        {
+          "id": "toolu_01JuUPS9juZckRxq2ZgbicN5",
+          "caller": {
+            "type": "direct"
+          },
+          "input": {
+            "release": "payrolls"
+          },
+          "name": "get_components",
+          "type": "tool_use"
+        },
+        {
+          "id": "toolu_012k32tjGaL2rRfqJXLkbmGf",
+          "caller": {
+            "type": "direct"
+          },
+          "input": {
+            "id": "payrolls",
+            "range": "2y"
+          },
+          "name": "get_series",
+          "type": "tool_use"
+        },
+        {
+          "id": "toolu_01QMP7A6ozAb3HiUwD6cr8zy",
+          "caller": {
+            "type": "direct"
+          },
+          "input": {
+            "id": "payrolls",
+            "value": 162
+          },
+          "name": "percentile_vs_history",
+          "type": "tool_use"
+        }
+      ],
+      "stop_reason": "tool_use",
+      "usage": {
+        "input_tokens": 2,
+        "output_tokens": 217,
+        "cache_creation_input_tokens": 232,
+        "cache_read_input_tokens": 2083
+      }
+    },
+    {
+      "request": {
+        "tools": [
+          "compare_to_prior_cycles",
+          "get_components",
+          "get_fomc_context",
+          "get_series",
+          "percentile_vs_history",
+          "finish"
+        ],
+        "n_messages": 3
+      },
+      "content": [
+        {
+          "id": "toolu_018q49t4md7WrZ3tYmE7BjMb",
+          "caller": {
+            "type": "direct"
+          },
+          "input": {
+            "analysis": "Nonfarm payrolls rose 162K in August 2026, up sharply from a prior reading of 21K and well above the recent 3-month average of 71K. The gain was broad-based but led by leisure and hospitality (+62K, versus -21K prior and a -4K 3-month average) and government (+35K, versus -50K prior and a -3K 3-month average), with smaller contributions from private education/health services (+29K) and construction (+22K). Despite the jump, the 162K reading sits only at the 44th percentile of the past 10 years, indicating job growth remains middling by historical standards even after this pickup.",
+            "cited_series": [
+              "payrolls",
+              "payrolls_leisure",
+              "payrolls_government",
+              "payrolls_health_education",
+              "payrolls_construction"
+            ]
+          },
+          "name": "finish",
+          "type": "tool_use"
+        }
+      ],
+      "stop_reason": "tool_use",
+      "usage": {
+        "input_tokens": 2,
+        "output_tokens": 312,
+        "cache_creation_input_tokens": 1441,
+        "cache_read_input_tokens": 2315
+      }
+    }
+  ]
+}

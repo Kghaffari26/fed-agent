@@ -436,8 +436,14 @@ class MacroAgent(Agent):
             return None, None
 
         statement = None
+        previous_output = ctx.previous_latest()
+        prior_block = _previous_fomc_latest(previous_output, state)
+        # With no previous FOMC block anywhere (a lost data branch and no legacy state),
+        # rediscover the latest statement rather than publish none until the next meeting.
         since = (
-            date.fromisoformat(state.fomc.latest_statement_date) if state.fomc.latest_statement_date else None
+            date.fromisoformat(state.fomc.latest_statement_date)
+            if state.fomc.latest_statement_date and prior_block
+            else None
         )
         stmts = statement_items(items)
         new = [i for i in stmts if since is None or parse_statement_date_from_url(i.link) > since]
@@ -446,14 +452,17 @@ class MacroAgent(Agent):
             idx = stmts.index(latest_item)
             latest = self._statement(ctx, latest_item.link, warnings)
             previous = self._statement(ctx, stmts[idx - 1].link, warnings) if idx > 0 else None
-            if previous is None:
-                block = _previous_fomc_latest(ctx.previous_latest(), state)
-                previous = _statement_from_block(block) if block else None
+            if previous is None and prior_block:
+                previous = _statement_from_block(prior_block)
             if latest is not None:
                 statement = StatementFetch(latest=latest, previous=previous)
 
         minutes = None
-        seen = date.fromisoformat(state.fomc.latest_minutes_date) if state.fomc.latest_minutes_date else None
+        seen = (
+            date.fromisoformat(state.fomc.latest_minutes_date)
+            if state.fomc.latest_minutes_date and _previous_minutes(previous_output, state)
+            else None
+        )
         candidates = [m for m in minutes_items(items) if seen is None or m.meeting_date > seen]
         if candidates:
             item = candidates[-1]

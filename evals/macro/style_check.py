@@ -12,13 +12,27 @@ from dataclasses import dataclass, field
 MAX_BULLET_WORDS = 30
 
 BANNED_WORDS = [
-    "shocking", "massive", "surge", "plunge", "crash", "skyrocket", "collapse",
-    "unprecedented", "alarming", "catastrophic", "explosive",
+    "shocking",
+    "massive",
+    "surge",
+    "plunge",
+    "crash",
+    "skyrocket",
+    "collapse",
+    "unprecedented",
+    "alarming",
+    "catastrophic",
+    "explosive",
 ]
 
 ADVICE_PATTERNS = [
-    r"\byou should\b", r"\bwe recommend\b", r"\bbuy\b", r"\bsell\b",
-    r"\binvest(?:ment)? advice\b", r"\bnow is the time\b", r"\bconsider (?:buying|selling)\b",
+    r"\byou should\b",
+    r"\bwe recommend\b",
+    r"\bbuy\b",
+    r"\bsell\b",
+    r"\binvest(?:ment)? advice\b",
+    r"\bnow is the time\b",
+    r"\bconsider (?:buying|selling)\b",
 ]
 
 

@@ -1,0 +1,112 @@
+{
+  "version": 1,
+  "model": "claude-sonnet-5",
+  "responses": [
+    {
+      "request": {
+        "tools": [
+          "compare_to_prior_cycles",
+          "get_components",
+          "get_fomc_context",
+          "get_series",
+          "percentile_vs_history",
+          "finish"
+        ],
+        "n_messages": 1
+      },
+      "content": [
+        {
+          "text": "I'll gather context on the FOMC decision and recent inflation/labor data to explain the cut.",
+          "type": "text"
+        },
+        {
+          "id": "toolu_0149Z58eenUQsUgStcmJ7AWu",
+          "caller": {
+            "type": "direct"
+          },
+          "input": {},
+          "name": "get_fomc_context",
+          "type": "tool_use"
+        },
+        {
+          "id": "toolu_01KWFmikKgoXVzExstS9VArW",
+          "caller": {
+            "type": "direct"
+          },
+          "input": {
+            "id": "cpi"
+          },
+          "name": "get_series",
+          "type": "tool_use"
+        },
+        {
+          "id": "toolu_01QQdUJdgFLDU6S66VEBRacd",
+          "caller": {
+            "type": "direct"
+          },
+          "input": {
+            "id": "unrate"
+          },
+          "name": "get_series",
+          "type": "tool_use"
+        },
+        {
+          "id": "toolu_01PchT2cadsTARK4GLkvdTyG",
+          "caller": {
+            "type": "direct"
+          },
+          "input": {
+            "id": "core_pce"
+          },
+          "name": "get_series",
+          "type": "tool_use"
+        }
+      ],
+      "stop_reason": "tool_use",
+      "usage": {
+        "input_tokens": 2,
+        "output_tokens": 201,
+        "cache_creation_input_tokens": 210,
+        "cache_read_input_tokens": 2083
+      }
+    },
+    {
+      "request": {
+        "tools": [
+          "compare_to_prior_cycles",
+          "get_components",
+          "get_fomc_context",
+          "get_series",
+          "percentile_vs_history",
+          "finish"
+        ],
+        "n_messages": 3
+      },
+      "content": [
+        {
+          "id": "toolu_019TW78auHt7wffkxkxgv5eJ",
+          "caller": {
+            "type": "direct"
+          },
+          "input": {
+            "analysis": "The FOMC cut its target range by 25bp to 4.00-4.25%, with 1 dissent, amid a mixed backdrop: CPI inflation was 3.4% YoY in August 2026, still elevated versus its 2.4% reading in February 2026, and core PCE stood at 3.3% YoY in July 2026, up from 2.6% in April 2025. Meanwhile the unemployment rate was 4.1% in August 2026, down from a recent high of 4.5% in November 2025, indicating labor conditions have stabilized even as inflation remains above earlier-2026 lows.",
+            "cited_series": [
+              "cpi",
+              "core_pce",
+              "unrate"
+            ]
+          },
+          "name": "finish",
+          "type": "tool_use"
+        }
+      ],
+      "stop_reason": "tool_use",
+      "usage": {
+        "input_tokens": 2,
+        "output_tokens": 282,
+        "cache_creation_input_tokens": 1628,
+        "cache_read_input_tokens": 2293
+      }
+    }
+  ]
+}

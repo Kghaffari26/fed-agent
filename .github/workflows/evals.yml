@@ -1,0 +1,31 @@
+# The §11 evals as a PR gate, through agents-core's reusable run-evals.yml: runs every
+# suite in evals/macro/suites.py (real LLM calls, one total spend cap), appends to
+# evals/history.jsonl, writes the score deltas against the previous entries to the job
+# summary, and fails the PR if any score drops by more than the threshold.
+name: Evals
+
+on:
+  pull_request:
+    paths:
+      - "agents/**"
+      - "config/**"
+      - "evals/**"
+      - "pyproject.toml"
+      - "uv.lock"
+  workflow_dispatch: {}
+
+jobs:
+  evals:
+    # run-evals.yml declares no permissions (agents-core v0.3.0): its job gets exactly
+    # this grant. It only checks out the repo.
+    permissions:
+      contents: read
+    uses: Kghaffari26/agents-core/.github/workflows/run-evals.yml@v0.3.0
+    with:
+      # One total cap across all suites (evals/run_macro.py splits it); a normal run
+      # costs about a third of it.
+      eval_command: uv run python evals/run_macro.py
+      max_usd: "0.60"
+      regression_threshold: "0.10"
+      paths: "agents/* config/* evals/* pyproject.toml uv.lock"
+    secrets: inherit

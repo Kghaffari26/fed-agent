@@ -323,3 +323,14 @@ def test_failed_series_is_stale_with_status_ok_and_a_warning(env, fred):
     assert output.meta.status == "ok"
     assert next(i for i in output.indicators if i.id == "umich_sentiment").stale is True
     assert any("UMCSENT" in w for w in output.meta.warnings)
+
+
+def test_lost_previous_output_rediscovers_the_latest_statement(env, fred):
+    """No previous latest.json and no legacy blocks in state: the latest statement and
+    minutes are rebuilt from the feed instead of publishing an empty FOMC block."""
+    assert _run(env, fred, FakeAnthropic()) == 0
+    (env / "public-data" / "latest.json").unlink()
+    assert _run(env, fred, FakeAnthropic()) == 0
+    output = MacroOutput.model_validate(_latest(env))
+    assert output.fomc.latest.date == date(2026, 9, 16) and output.fomc.latest.read is not None
+    assert output.fomc.minutes.summary
