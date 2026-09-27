@@ -39,7 +39,7 @@ def main() -> int:
     recent = date.today().replace(year=date.today().year - 2).isoformat()
     with Http() as http:
         http.set_policy(FRED_HOST, HostPolicy(min_interval_seconds=0.5))
-        for ind in config.indicators:
+        for ind in [*config.indicators, *config.components]:
             try:
                 meta = fetch_series_meta(http, ind.fred_series, api_key)
                 obs = fetch_observations(http, ind.fred_series, api_key, observation_start=recent)
@@ -58,7 +58,7 @@ def main() -> int:
     if failures:
         print(f"{len(failures)} series failed: {', '.join(failures)}", file=sys.stderr)
         return 1
-    print(f"All {len(config.indicators)} configured series verified OK.")
+    print(f"All {len(config.indicators) + len(config.components)} configured series verified OK.")
     return 0
 
 

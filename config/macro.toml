@@ -366,3 +366,167 @@ high_priority = false
 thresholds = []
 units = "index"
 level_decimals = 1
+
+# -- Release components (the release investigator's get_components tool) -----
+#
+# Not published as indicators: only the investigator reads them, when a CPI or
+# payrolls release triggers it. Same fields as [[indicator]] plus `release`, the
+# indicator id whose release they break down. Fetched with the same last_updated
+# change detection as the indicators; a failure is a warning, never a failed run.
+# Series verified live on 2026-09-27 (scripts/verify_macro_series.py).
+
+[[component]]
+release = "cpi"
+id = "cpi_shelter"
+name = "CPI: shelter"
+group = "components"
+fred_series = "CUSR0000SAH1"
+frequency = "monthly"
+primary = "yoy_pct"
+secondary = ["mom_pct"]
+good_direction = "down"
+units = "index"
+level_decimals = 1
+
+[[component]]
+release = "cpi"
+id = "cpi_energy"
+name = "CPI: energy"
+group = "components"
+fred_series = "CPIENGSL"
+frequency = "monthly"
+primary = "yoy_pct"
+secondary = ["mom_pct"]
+good_direction = "down"
+units = "index"
+level_decimals = 1
+
+[[component]]
+release = "cpi"
+id = "cpi_food"
+name = "CPI: food"
+group = "components"
+fred_series = "CPIUFDSL"
+frequency = "monthly"
+primary = "yoy_pct"
+secondary = ["mom_pct"]
+good_direction = "down"
+units = "index"
+level_decimals = 1
+
+[[component]]
+release = "cpi"
+id = "cpi_core_goods"
+name = "CPI: core goods (commodities less food and energy)"
+group = "components"
+fred_series = "CUSR0000SACL1E"
+frequency = "monthly"
+primary = "yoy_pct"
+secondary = ["mom_pct"]
+good_direction = "down"
+units = "index"
+level_decimals = 1
+
+[[component]]
+release = "cpi"
+id = "cpi_core_services"
+name = "CPI: core services (services less energy)"
+group = "components"
+fred_series = "CUSR0000SASLE"
+frequency = "monthly"
+primary = "yoy_pct"
+secondary = ["mom_pct"]
+good_direction = "down"
+units = "index"
+level_decimals = 1
+
+[[component]]
+release = "payrolls"
+id = "payrolls_construction"
+name = "Payrolls: construction"
+group = "components"
+fred_series = "USCONS"
+frequency = "monthly"
+primary = "mom_diff"
+secondary = ["avg_3"]
+good_direction = "up"
+units = "thousands"
+level_decimals = 0
+
+[[component]]
+release = "payrolls"
+id = "payrolls_manufacturing"
+name = "Payrolls: manufacturing"
+group = "components"
+fred_series = "MANEMP"
+frequency = "monthly"
+primary = "mom_diff"
+secondary = ["avg_3"]
+good_direction = "up"
+units = "thousands"
+level_decimals = 0
+
+[[component]]
+release = "payrolls"
+id = "payrolls_trade_transport"
+name = "Payrolls: trade, transportation and utilities"
+group = "components"
+fred_series = "USTPU"
+frequency = "monthly"
+primary = "mom_diff"
+secondary = ["avg_3"]
+good_direction = "up"
+units = "thousands"
+level_decimals = 0
+
+[[component]]
+release = "payrolls"
+id = "payrolls_professional"
+name = "Payrolls: professional and business services"
+group = "components"
+fred_series = "USPBS"
+frequency = "monthly"
+primary = "mom_diff"
+secondary = ["avg_3"]
+good_direction = "up"
+units = "thousands"
+level_decimals = 0
+
+[[component]]
+release = "payrolls"
+id = "payrolls_health_education"
+name = "Payrolls: private education and health services"
+group = "components"
+fred_series = "USEHS"
+frequency = "monthly"
+primary = "mom_diff"
+secondary = ["avg_3"]
+good_direction = "up"
+units = "thousands"
+level_decimals = 0
+
+[[component]]
+release = "payrolls"
+id = "payrolls_leisure"
+name = "Payrolls: leisure and hospitality"
+group = "components"
+fred_series = "USLAH"
+frequency = "monthly"
+primary = "mom_diff"
+secondary = ["avg_3"]
+good_direction = "up"
+units = "thousands"
+level_decimals = 0
+
+[[component]]
+release = "payrolls"
+id = "payrolls_government"
+name = "Payrolls: government"
+group = "components"
+fred_series = "USGOVT"
+frequency = "monthly"
+primary = "mom_diff"
+secondary = ["avg_3"]
+good_direction = "up"
+units = "thousands"
+level_decimals = 0

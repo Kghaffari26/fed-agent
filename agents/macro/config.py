@@ -52,9 +52,20 @@ class IndicatorConfig(BaseModel):
         return f"https://fred.stlouisfed.org/series/{self.fred_series}"
 
 
+class ComponentConfig(IndicatorConfig):
+    """A release component (CPI shelter, payrolls by sector...), read only by the
+    release investigator. `release` is the indicator id it breaks down."""
+
+    release: str
+
+
 class MacroConfig(BaseModel):
     settings: Settings
     indicators: list[IndicatorConfig]
+    components: list[ComponentConfig] = Field(default_factory=list)
+
+    def components_for(self, release: str) -> list[ComponentConfig]:
+        return [c for c in self.components if c.release == release]
 
     def indicator(self, indicator_id: str) -> IndicatorConfig:
         for ind in self.indicators:
@@ -98,6 +109,7 @@ def load_macro_config(path: Path = DEFAULT_MACRO_TOML) -> MacroConfig:
     return MacroConfig(
         settings=Settings(**raw.get("settings", {})),
         indicators=raw.get("indicator", []),
+        components=raw.get("component", []),
     )
 
 

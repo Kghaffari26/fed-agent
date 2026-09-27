@@ -97,15 +97,64 @@ def test_release_timing_next_release_and_not_delayed():
 
 
 def test_release_timing_delayed_after_two_day_grace():
+    """A shutdown-style miss: the scheduled date passed and FRED published nothing."""
     dates = [date(2026, 8, 26), date(2026, 9, 30)]
+    published = [date(2026, 7, 30)]
     late = release_timing(
-        frequency="quarterly", last_updated=date(2026, 7, 30), release_dates=dates, today=date(2026, 8, 29)
+        frequency="quarterly",
+        last_updated=date(2026, 7, 30),
+        release_dates=dates,
+        published_dates=published,
+        today=date(2026, 8, 29),
     )
     grace = release_timing(
-        frequency="quarterly", last_updated=date(2026, 7, 30), release_dates=dates, today=date(2026, 8, 28)
+        frequency="quarterly",
+        last_updated=date(2026, 7, 30),
+        release_dates=dates,
+        published_dates=published,
+        today=date(2026, 8, 28),
     )
     assert late.delayed is True and late.last_scheduled == date(2026, 8, 26)
     assert grace.delayed is False
+
+
+def test_gdp_release_published_without_revising_the_series_is_not_delayed():
+    """The real 2026-09-26 case: FRED's GDP release (53) published on 2026-08-26, but
+    A191RL1Q225SBEA's last_updated stayed 2026-07-30. Not delayed."""
+    t = release_timing(
+        frequency="quarterly",
+        last_updated=date(2026, 7, 30),
+        release_dates=[date(2026, 7, 30), date(2026, 8, 26), date(2026, 9, 30)],
+        published_dates=[date(2026, 7, 30), date(2026, 8, 26)],
+        today=date(2026, 9, 26),
+    )
+    assert t.delayed is False
+    assert t.next_release == date(2026, 9, 30)
+
+
+def test_scheduled_not_yet_due_is_not_delayed():
+    """2026-09-30 is on FRED's calendar but not yet published: not delayed, before or
+    on the day, whatever the series' last update."""
+    for today in (date(2026, 9, 29), date(2026, 9, 30)):
+        t = release_timing(
+            frequency="quarterly",
+            last_updated=date(2026, 7, 30),
+            release_dates=[date(2026, 8, 26), date(2026, 9, 30)],
+            published_dates=[date(2026, 8, 26)],
+            today=today,
+        )
+        assert t.delayed is False
+
+
+def test_unknown_release_status_never_flags_delayed():
+    t = release_timing(
+        frequency="quarterly",
+        last_updated=date(2026, 7, 30),
+        release_dates=[date(2026, 8, 26)],
+        published_dates=None,
+        today=date(2026, 9, 26),
+    )
+    assert t.delayed is False
 
 
 def test_release_timing_release_day_before_data_posts():

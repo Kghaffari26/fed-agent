@@ -10,13 +10,14 @@ from __future__ import annotations
 import json
 from datetime import UTC, date, datetime, timedelta
 
+import httpx
 import pytest
 from agents_core import registry, runner
 from agents_core.http import Http
 
 from agents.macro.agent import AGENT, MacroAgent, state_path
 from agents.macro.schema import MacroOutput
-from tests.macro_fakes import FakeAnthropic, FakeFred, fake_transport
+from tests.macro_fakes import FakeAnthropic, FakeFred, fake_transport, good_investigator
 
 
 @pytest.fixture
@@ -61,7 +62,14 @@ def test_first_run_publishes_the_data_branch_contract(env, fred):
     assert _run(env, fred, client) == 0
 
     pub = env / "public-data"
-    for name in ("latest.json", "manifest-entry.json", "costs-summary.json", "schema.json"):
+    for name in (
+        "latest.json",
+        "manifest-entry.json",
+        "costs-summary.json",
+        "schema.json",
+        "trace.json",
+        "trace.schema.json",
+    ):
         assert (pub / name).is_file(), name
     assert len(list((pub / "history").glob("*.json"))) == 1
     assert (pub / "latest.json").stat().st_size < 350_000
@@ -92,8 +100,34 @@ def test_first_run_publishes_the_data_branch_contract(env, fred):
     assert len(manifest["key_stats"]) == 4
 
     purposes = [line["purpose"] for line in _cost_lines(env) if "purpose" in line]
-    assert purposes == ["macro:brief", "macro:fomc_read", "macro:minutes"]
+    assert purposes == [
+        "macro:brief",
+        "macro:fomc_read",
+        "macro:minutes",
+        "macro:investigator:step1",
+        "macro:investigator:step2",
+    ]
     assert state_path().is_file()
+
+    # §6.1: the FOMC decision triggered the release investigator.
+    inv = output.investigation
+    assert inv.trigger.event_id == "fomc_decision:2026-09-16" and inv.trigger.type == "fomc_decision"
+    assert inv.narrative_source == "llm" and inv.model
+    assert inv.analysis.startswith("Core PCE was ")
+    assert [c.id for c in inv.cited_series] == ["core_pce"]  # the unknown id was dropped by code
+    assert inv.cited_series[0].url == "https://fred.stlouisfed.org/series/PCEPILFE"
+    assert inv.loop.tool_calls == ["get_series", "get_fomc_context"]
+    assert inv.loop.stop_reason == "finished" and inv.loop.steps == 2 and inv.loop.cost_usd > 0
+    assert output.meta.warnings == []
+
+    # trace.json: the run, its phases, every LLM call, the loop and its tool calls.
+    trace = json.loads((pub / "trace.json").read_text())
+    kinds = [s["kind"] for s in trace["spans"]]
+    assert kinds.count("agent_loop") == 1 and kinds.count("tool_call") == 2
+    assert {s["name"] for s in trace["spans"] if s["kind"] == "phase"} >= {"fetch", "transform", "analyze"}
+    assert any(s["name"] == "macro:investigate" for s in trace["spans"])
+    assert manifest["trace_summary"]["tool_calls"] == 2 and manifest["trace_summary"]["llm_calls"] == 5
+    assert "test-key" not in (pub / "trace.json").read_text()
 
 
 def test_immediate_rerun_makes_zero_llm_calls(env, fred):
@@ -114,11 +148,14 @@ def test_immediate_rerun_makes_zero_llm_calls(env, fred):
     assert second["headline"] == first["headline"]
     assert second["fomc"]["latest"]["read"] == first["fomc"]["latest"]["read"]
     assert second["fomc"]["minutes"] == first["fomc"]["minutes"]
+    # The investigation is carried over, marked as reused.
+    assert second["investigation"]["analysis"] == first["investigation"]["analysis"]
+    assert second["investigation"]["reused_from_run_id"] == first["meta"]["run_id"]
     # Unchanged series skip the observations call entirely (§3).
     second_run_requests = fred.requests[len(fred.requests) // 2 :]
     assert not any("/series/observations" in r for r in second_run_requests)
     runs = [line for line in _cost_lines(env) if line.get("kind") == "run"]
-    assert [r["calls"] for r in runs] == [3, 0]
+    assert [r["calls"] for r in runs] == [5, 0]
 
 
 def test_payroll_revision_shows_up_as_revision_block_and_bullet(env, fred):
@@ -203,3 +240,86 @@ def test_cost_cap_fails_run_and_keeps_previous_latest(env, fred, monkeypatch):
     assert (env / "public-data" / "latest.json").read_bytes() == before
     manifest = json.loads((env / "public-data" / "manifest-entry.json").read_text())
     assert manifest["status"] == "failed"
+
+
+def test_rerun_republishes_from_previous_latest_not_state(env, fred):
+    """Since agents-core v0.2.0 the data branch is restored into public-data/, so the
+    FOMC block, minutes and headline come from the previous latest.json; state.json
+    no longer carries them."""
+    assert _run(env, fred, FakeAnthropic()) == 0
+    state = json.loads(state_path().read_text())
+    assert set(state["fomc"]) == {"latest_statement_date", "latest_minutes_date"}
+    assert "headline" not in state["last_brief"] and "releases" not in state
+
+    assert _run(env, fred, FakeAnthropic()) == 0
+    assert _latest(env)["fomc"]["latest"]["read"]["narrative_source"] == "llm"
+
+
+def test_investigator_guard_failure_retries_then_ships_template(env, fred):
+    def invents(params):
+        return good_investigator(params, invent_number=True)
+
+    client = FakeAnthropic(investigator=invents)
+    assert _run(env, fred, client) == 0
+
+    inv = MacroOutput.model_validate(_latest(env)).investigation
+    assert inv.narrative_source == "template" and inv.model is None
+    assert "987.6" not in inv.analysis
+    assert inv.analysis.startswith("The FOMC's decision was a hike")
+    assert inv.loop.stop_reason == "finished" and inv.loop.guard_attempts == 2
+    loop_calls = [c for c in client.calls if c["output_format"] == "investigator"]
+    assert len(loop_calls) == 3  # tools, finish, retried finish
+    failures = [json.loads(x) for x in (env / "data" / "guard_failures.jsonl").read_text().splitlines()]
+    assert [f["purpose"] for f in failures] == ["macro:investigator:finish"] * 2
+
+
+def test_investigator_budget_stop_is_a_warning_not_a_failure(env, fred):
+    def never_finishes(params):
+        n = len(params["messages"])
+        return [{"type": "tool_use", "id": f"t{n}", "name": "get_fomc_context", "input": {}}]
+
+    client = FakeAnthropic(investigator=never_finishes)
+    assert _run(env, fred, client) == 0
+
+    output = MacroOutput.model_validate(_latest(env))
+    assert output.meta.status == "ok"
+    assert output.investigation.narrative_source == "template"
+    assert output.investigation.loop.stop_reason in ("max_steps", "max_usd")
+    assert output.investigation.loop.steps <= 8
+    assert any("release investigator stopped" in w for w in output.meta.warnings)
+
+
+def test_no_anthropic_key_publishes_templates_with_a_warning(env, fred, monkeypatch):
+    """agents-hub: a missing key must degrade to template output, not fail the run."""
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("AGENTS_ANTHROPIC_API_KEY", raising=False)
+    assert _run(env, fred, None) == 0
+
+    output = MacroOutput.model_validate(_latest(env))
+    assert output.meta.status == "ok"
+    assert output.meta.cost_usd == 0
+    assert output.meta.warnings == ["No Anthropic API key configured: published template narrative only"]
+    assert output.brief.narrative_source == "template" and output.brief.bullets
+    assert output.fomc.latest.read.narrative_source == "template"
+    assert output.fomc.minutes.narrative_source == "template"
+    assert output.investigation.narrative_source == "template" and output.investigation.loop is None
+    manifest = json.loads((env / "public-data" / "manifest-entry.json").read_text())
+    assert manifest["status"] == "ok"
+
+
+def test_failed_series_is_stale_with_status_ok_and_a_warning(env, fred):
+    """§10: FRED failing for one series publishes the rest, `status: ok` + a warning."""
+    assert _run(env, fred, FakeAnthropic()) == 0
+    original = fred.handle
+
+    def flaky(request):
+        if request.url.params.get("series_id") == "UMCSENT":
+            return httpx.Response(500)
+        return original(request)
+
+    fred.handle = flaky
+    assert _run(env, fred, FakeAnthropic()) == 0
+    output = MacroOutput.model_validate(_latest(env))
+    assert output.meta.status == "ok"
+    assert next(i for i in output.indicators if i.id == "umich_sentiment").stale is True
+    assert any("UMCSENT" in w for w in output.meta.warnings)

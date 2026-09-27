@@ -128,6 +128,34 @@
       "title": "Citation",
       "type": "object"
     },
+    "CitedSeries": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "fred_series": {
+          "title": "Fred Series",
+          "type": "string"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "fred_series",
+        "url"
+      ],
+      "title": "CitedSeries",
+      "type": "object"
+    },
     "EventOut": {
       "properties": {
         "id": {
@@ -705,6 +733,145 @@
       "title": "InversionPeriod",
       "type": "object"
     },
+    "Investigation": {
+      "properties": {
+        "trigger": {
+          "$ref": "#/$defs/InvestigationTrigger"
+        },
+        "analysis": {
+          "title": "Analysis",
+          "type": "string"
+        },
+        "cited_series": {
+          "items": {
+            "$ref": "#/$defs/CitedSeries"
+          },
+          "title": "Cited Series",
+          "type": "array"
+        },
+        "narrative_source": {
+          "enum": [
+            "llm",
+            "template"
+          ],
+          "title": "Narrative Source",
+          "type": "string"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model"
+        },
+        "generated_at": {
+          "title": "Generated At",
+          "type": "string"
+        },
+        "reused_from_run_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reused From Run Id"
+        },
+        "loop": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/InvestigationLoop"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "trigger",
+        "analysis",
+        "narrative_source",
+        "generated_at"
+      ],
+      "title": "Investigation",
+      "type": "object"
+    },
+    "InvestigationLoop": {
+      "description": "What the agent loop did. Null when no loop ran (no API key).",
+      "properties": {
+        "steps": {
+          "title": "Steps",
+          "type": "integer"
+        },
+        "tool_calls": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tool Calls",
+          "type": "array"
+        },
+        "stop_reason": {
+          "title": "Stop Reason",
+          "type": "string"
+        },
+        "cost_usd": {
+          "title": "Cost Usd",
+          "type": "number"
+        },
+        "guard_attempts": {
+          "default": 0,
+          "title": "Guard Attempts",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "steps",
+        "stop_reason",
+        "cost_usd"
+      ],
+      "title": "InvestigationLoop",
+      "type": "object"
+    },
+    "InvestigationTrigger": {
+      "properties": {
+        "event_id": {
+          "title": "Event Id",
+          "type": "string"
+        },
+        "type": {
+          "title": "Type",
+          "type": "string"
+        },
+        "indicator_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Indicator Id"
+        }
+      },
+      "required": [
+        "event_id",
+        "type"
+      ],
+      "title": "InvestigationTrigger",
+      "type": "object"
+    },
     "KeyStat": {
       "additionalProperties": false,
       "properties": {
@@ -877,6 +1044,19 @@
           "type": "number"
         },
         "format": {
+          "enum": [
+            "currency_compact",
+            "currency",
+            "percent",
+            "percent_signed",
+            "pp_signed",
+            "count",
+            "count_signed",
+            "count_signed_thousands",
+            "decimal1",
+            "days",
+            "ratio"
+          ],
           "title": "Format",
           "type": "string"
         }
@@ -892,7 +1072,7 @@
     },
     "RunMeta": {
       "additionalProperties": false,
-      "description": "The `meta` block at the top of every agent's `latest.json`.",
+      "description": "The `meta` block at the top of every agent's `latest.json`.\n\nAgent-specific meta fields: subclass `RunMeta` (fields need defaults), declare\n`meta: MyMeta` on your `AgentOutput` subclass, and return the values in\n`AgentResult.meta_fields`. The runner merges them into `meta` before validating,\nso they're published in latest.json and appear in schema.json.",
       "properties": {
         "agent": {
           "title": "Agent",
@@ -942,6 +1122,19 @@
           },
           "title": "Sources",
           "type": "array"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        },
+        "meta_schema_version": {
+          "default": "1.1.0",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "title": "Meta Schema Version",
+          "type": "string"
         }
       },
       "required": [
@@ -954,7 +1147,9 @@
         "data_changed",
         "cost_usd",
         "model_usage",
-        "sources"
+        "sources",
+        "warnings",
+        "meta_schema_version"
       ],
       "title": "RunMeta",
       "type": "object"
@@ -1051,6 +1246,19 @@
           "type": "number"
         },
         "format": {
+          "enum": [
+            "currency_compact",
+            "currency",
+            "percent",
+            "percent_signed",
+            "pp_signed",
+            "count",
+            "count_signed",
+            "count_signed_thousands",
+            "decimal1",
+            "days",
+            "ratio"
+          ],
           "title": "Format",
           "type": "string"
         },
@@ -1069,6 +1277,19 @@
         "delta_format": {
           "anyOf": [
             {
+              "enum": [
+                "currency_compact",
+                "currency",
+                "percent",
+                "percent_signed",
+                "pp_signed",
+                "count",
+                "count_signed",
+                "count_signed_thousands",
+                "decimal1",
+                "days",
+                "ratio"
+              ],
               "type": "string"
             },
             {
@@ -1260,6 +1481,17 @@
       },
       "title": "Events",
       "type": "array"
+    },
+    "investigation": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Investigation"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     }
   },
   "required": [
@@ -1272,7 +1504,8 @@
     "yield_curve",
     "fomc",
     "calendar",
-    "events"
+    "events",
+    "investigation"
   ],
   "title": "MacroOutput",
   "type": "object"

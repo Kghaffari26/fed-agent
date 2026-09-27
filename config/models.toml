@@ -7,3 +7,10 @@
 # cap truncates the JSON. These are short, fully-specified writing tasks: thinking off.
 [tiers.smart]
 thinking = "disabled"
+
+# §7.1 asks for temperature 0. claude-sonnet-5 rejects sampling parameters, so the
+# smart tier leaves it unset (agents-core sends none unless a tier sets one, since
+# v0.2.0). The fast tier (claude-haiku-4-5, used only by the eval LLM judge) accepts
+# it: 0 keeps the judge's scores stable run to run.
+[tiers.fast]
+temperature = 0

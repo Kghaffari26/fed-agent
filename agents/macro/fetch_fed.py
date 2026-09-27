@@ -12,6 +12,7 @@ import re
 from dataclasses import dataclass
 from datetime import date
 from email.utils import parsedate_to_datetime
+from pathlib import Path
 
 import feedparser
 from agents_core.http import Http
@@ -200,9 +201,16 @@ def parse_calendar(html: str) -> list[FomcMeeting]:
 # ---- network (through agents_core.http) -------------------------------------------
 
 
-def fetch_feed(http: Http, url: str = FOMC_RSS_URL) -> list[FeedItem]:
-    # Never cached: the feed is how a new statement is discovered.
-    return parse_feed(http.get(url, ttl_seconds=0).text)
+def download_text(http: Http, url: str, dest: Path) -> str:
+    """A conditional GET (agents-core's `Http.download`: ETag/Last-Modified sidecar).
+    Always asks the server, so a new statement is never hidden by a TTL; a 304 reuses
+    the previous copy in `dest` without re-downloading it."""
+    return http.download(url, dest).path.read_text(encoding="utf-8")
+
+
+def fetch_feed(http: Http, dest: Path, url: str = FOMC_RSS_URL) -> list[FeedItem]:
+    # The feed is how a new statement is discovered: checked on every run.
+    return parse_feed(download_text(http, url, dest))
 
 
 def fetch_page(http: Http, url: str) -> str:
@@ -210,8 +218,8 @@ def fetch_page(http: Http, url: str) -> str:
     return http.get(url, ttl_seconds=PERMANENT_TTL_SECONDS).text
 
 
-def fetch_calendar(http: Http) -> list[FomcMeeting]:
-    return parse_calendar(http.get(CALENDAR_URL, ttl_seconds=24 * 3600).text)
+def fetch_calendar(http: Http, dest: Path) -> list[FomcMeeting]:
+    return parse_calendar(download_text(http, CALENDAR_URL, dest))
 
 
 def compare_calendars(parsed: list[FomcMeeting], fallback: list[FomcMeeting], *, since: date) -> list[str]:

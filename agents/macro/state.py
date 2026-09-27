@@ -1,12 +1,15 @@
 """Read/write data/macro/state.json (§4). Committed, not published to the site.
 
-Besides the §4 fields (per-series `last_updated` + last 36 observations, FOMC
-dates, the last brief), state carries what a no-change run needs to republish
-without calling the LLM: the full last FOMC block and minutes block (their LLM
-reads included), the last headline, regime labels and delayed flags (so
-`regime_change`/`delayed` events fire once, on the transition), and the §3
-30-day `series/release` cache. It lives in git rather than the publish dir because
-agents-core's run-agent.yml commits `data/` back but does not restore `public-data/`.
+The §4 fields (per-series `last_updated` + last 36 observations, FOMC dates, the
+last brief) plus regime labels and delayed flags, so `regime_change`/`delayed`
+events fire once, on the transition.
+
+Everything else a no-change run republishes — the FOMC block and minutes block with
+their LLM reads, the headline, the investigation — comes from the previous
+`latest.json` (`ctx.previous_latest()`), which agents-core's run-agent.yml restores
+from the `data` branch since v0.2.0. `FomcState.latest`/`.minutes` and
+`LastBrief.headline` are read from an older state.json only as a one-time migration
+fallback (when there is no previous latest.json yet) and are no longer written.
 """
 
 from __future__ import annotations
@@ -39,8 +42,8 @@ class SeriesState:
 class FomcState:
     latest_statement_date: str | None = None
     latest_minutes_date: str | None = None
-    # The published `fomc.latest` / `fomc.minutes` blocks (schema.FomcLatest /
-    # FomcMinutesOut as JSON), reused verbatim until a newer statement/minutes appears.
+    # Legacy (read-only): the `fomc.latest` / `fomc.minutes` blocks older versions kept
+    # here because CI never restored public-data/. Only a migration fallback now.
     latest: dict[str, Any] | None = None
     minutes: dict[str, Any] | None = None
 
@@ -48,8 +51,6 @@ class FomcState:
         return {
             "latest_statement_date": self.latest_statement_date,
             "latest_minutes_date": self.latest_minutes_date,
-            "latest": self.latest,
-            "minutes": self.minutes,
         }
 
     @classmethod
@@ -70,7 +71,7 @@ class LastBrief:
     narrative_source: str = "template"
     model: str | None = None
     generated_at: str | None = None
-    headline: str | None = None
+    headline: str | None = None  # legacy, read-only (see the module docstring)
 
     def to_dict(self) -> dict:
         return {
@@ -80,7 +81,6 @@ class LastBrief:
             "narrative_source": self.narrative_source,
             "model": self.model,
             "generated_at": self.generated_at,
-            "headline": self.headline,
         }
 
     @classmethod
@@ -98,30 +98,12 @@ class LastBrief:
 
 
 @dataclass
-class ReleaseState:
-    release_id: str
-    name: str
-    fetched_on: str  # ISO date; refreshed after RELEASE_CACHE_DAYS
-
-    def to_dict(self) -> dict:
-        return {"release_id": self.release_id, "name": self.name, "fetched_on": self.fetched_on}
-
-    @classmethod
-    def from_dict(cls, raw: dict) -> ReleaseState:
-        return cls(release_id=str(raw["release_id"]), name=raw["name"], fetched_on=raw["fetched_on"])
-
-
-RELEASE_CACHE_DAYS = 30
-
-
-@dataclass
 class MacroState:
     series: dict[str, SeriesState] = field(default_factory=dict)
     fomc: FomcState = field(default_factory=FomcState)
     last_brief: LastBrief | None = None
     regimes: dict[str, str] = field(default_factory=dict)
     delayed: list[str] = field(default_factory=list)  # indicator ids flagged delayed last run
-    releases: dict[str, ReleaseState] = field(default_factory=dict)  # by FRED series id
 
     def to_dict(self) -> dict:
         return {
@@ -130,7 +112,6 @@ class MacroState:
             "last_brief": self.last_brief.to_dict() if self.last_brief else None,
             "regimes": dict(sorted(self.regimes.items())),
             "delayed": sorted(self.delayed),
-            "releases": {sid: r.to_dict() for sid, r in sorted(self.releases.items())},
         }
 
     @classmethod
@@ -139,14 +120,12 @@ class MacroState:
         fomc = FomcState.from_dict(raw.get("fomc") or {})
         last_brief_raw = raw.get("last_brief")
         last_brief = LastBrief.from_dict(last_brief_raw) if last_brief_raw else None
-        releases = {sid: ReleaseState.from_dict(v) for sid, v in (raw.get("releases") or {}).items()}
         return cls(
             series=series,
             fomc=fomc,
             last_brief=last_brief,
             regimes=dict(raw.get("regimes") or {}),
             delayed=list(raw.get("delayed") or []),
-            releases=releases,
         )
 
     def series_last_updated(self, series_id: str) -> str | None:

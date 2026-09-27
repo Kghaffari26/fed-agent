@@ -113,26 +113,41 @@ def test_no_change_path_triggers_fetch_when_last_updated_differs():
 
 
 def test_round_trip_of_no_change_path_fields(tmp_path):
-    from agents.macro.state import ReleaseState
-
     path = tmp_path / "state.json"
     state = MacroState(
-        fomc=FomcState(latest={"date": "2026-09-16"}, minutes={"meeting_date": "2026-07-29"}),
+        fomc=FomcState(latest_statement_date="2026-09-16", latest_minutes_date="2026-07-29"),
         regimes={"inflation": "Steady"},
         delayed=["gdp"],
-        releases={
-            "CPIAUCSL": ReleaseState(release_id="10", name="Consumer Price Index", fetched_on="2026-09-26")
-        },
-        last_brief=LastBrief(run_id="r", bullets=[], event_ids=[], headline="h", narrative_source="llm"),
+        last_brief=LastBrief(run_id="r", bullets=[], event_ids=[], narrative_source="llm"),
     )
     save_state(state, path)
     again = load_state(path)
-    assert again.fomc.latest == {"date": "2026-09-16"}
-    assert again.fomc.minutes == {"meeting_date": "2026-07-29"}
+    assert again.fomc.latest_statement_date == "2026-09-16"
     assert again.regimes == {"inflation": "Steady"}
     assert again.delayed == ["gdp"]
-    assert again.releases["CPIAUCSL"].name == "Consumer Price Index"
-    assert again.last_brief.headline == "h"
+    assert again.last_brief.narrative_source == "llm"
+
+
+def test_legacy_blocks_are_read_but_no_longer_written(tmp_path):
+    """Pre-v0.2.0 state carried the FOMC blocks, headline and a release cache (CI
+    didn't restore public-data/). They're a read-only migration fallback now."""
+    path = tmp_path / "state.json"
+    path.write_text(
+        json.dumps(
+            {
+                "fomc": {"latest": {"date": "2026-09-16"}, "minutes": {"meeting_date": "2026-07-29"}},
+                "last_brief": {"run_id": "r", "bullets": [], "event_ids": [], "headline": "h"},
+                "releases": {"CPIAUCSL": {"release_id": "10", "name": "CPI", "fetched_on": "2026-09-26"}},
+            }
+        )
+    )
+    legacy = load_state(path)
+    assert legacy.fomc.latest == {"date": "2026-09-16"}
+    assert legacy.last_brief.headline == "h"
+    save_state(legacy, path)
+    written = json.loads(path.read_text())
+    assert "latest" not in written["fomc"] and "minutes" not in written["fomc"]
+    assert "headline" not in written["last_brief"] and "releases" not in written
 
 
 def test_legacy_string_bullets_are_upgraded():

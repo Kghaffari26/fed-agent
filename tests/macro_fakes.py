@@ -81,15 +81,18 @@ class FakeFred:
 
     def __post_init__(self) -> None:
         config = load_macro_config()
-        for i, ind in enumerate(config.indicators):
+        for i, ind in enumerate([*config.indicators, *config.components]):
             sid = ind.fred_series
             end = self.today - timedelta(days=40) if ind.frequency in ("monthly", "quarterly") else self.today
             points = []
             for k, d in enumerate(_dates(ind.frequency, end)):
                 if sid in FIXED_LEVELS:
                     value = FIXED_LEVELS[sid]
-                elif ind.primary in ("yoy_pct", "mom_pct", "ann_3m_pct") or sid == "PAYEMS":
-                    value = 100.0 * (1.0025**k) if sid != "PAYEMS" else 150000.0 + 120.0 * k
+                elif ind.primary == "mom_diff":  # payrolls and its sectors: steady growth
+                    step = 120.0 if sid == "PAYEMS" else 60.0 - i
+                    value = (150000.0 if sid == "PAYEMS" else 10000.0 + 100.0 * i) + step * k
+                elif ind.primary in ("yoy_pct", "mom_pct", "ann_3m_pct"):
+                    value = 100.0 * ((1.002 + 0.0001 * (i % 7)) ** k)
                 else:
                     value = 3.0 + (i % 5) * 0.4 + 0.3 * math.sin(k / 9.0)
                 points.append((d, round(value, 3)))
@@ -141,6 +144,8 @@ class FakeFred:
         if path == "/release/dates":
             rid = params["release_id"]
             dates = [self.today + timedelta(days=7 + int(rid) % 20)]
+            if params.get("include_release_dates_with_no_data") == "false":
+                dates = [d for d in dates if d <= self.today]
             return httpx.Response(
                 200, json={"release_dates": [{"release_id": rid, "date": d.isoformat()} for d in dates]}
             )
@@ -215,13 +220,87 @@ class FakeMessages:
             content=[SimpleNamespace(type="text", text=json.dumps(payload))],
         )
 
-    def create(self, **params):  # pragma: no cover - the agent only uses structured calls
-        raise AssertionError("unexpected messages.create")
+    def create(self, **params):
+        """The release investigator's tool-use loop (agents_core LLM.converse)."""
+        self.calls.append({"output_format": "investigator", **params})
+        blocks = self.investigator(params)
+        stop = "tool_use" if any(b["type"] == "tool_use" for b in blocks) else "end_turn"
+        return SimpleNamespace(
+            usage=SimpleNamespace(
+                input_tokens=2500, output_tokens=150, cache_creation_input_tokens=0, cache_read_input_tokens=0
+            ),
+            stop_reason=stop,
+            stop_details=None,
+            content=[SimpleNamespace(**b) for b in blocks],
+        )
+
+
+# ---- scripted release investigator ------------------------------------------------------
+
+
+def message_text(message: dict) -> str:
+    content = message["content"]
+    if isinstance(content, str):
+        return content
+    return "".join(b.get("text", "") for b in content if b.get("type") == "text")
+
+
+def tool_results(messages: list[dict]) -> dict[str, Any]:
+    """tool name -> parsed JSON output, from every tool_result so far."""
+    names = {}
+    for m in messages:
+        if m["role"] == "assistant":
+            for b in m["content"]:
+                if b.get("type") == "tool_use":
+                    names[b["id"]] = b["name"]
+    out: dict[str, Any] = {}
+    for m in messages:
+        if m["role"] == "user" and isinstance(m["content"], list):
+            for b in m["content"]:
+                if b.get("type") == "tool_result" and not b.get("is_error"):
+                    body = b["content"]
+                    if isinstance(body, list):
+                        body = "".join(x.get("text", "") for x in body)
+                    body = body[body.index(">") + 1 : body.rindex("</")]
+                    out[names[b["tool_use_id"]]] = json.loads(body)
+    return out
+
+
+def good_investigator(params: dict, *, invent_number: bool = False) -> list[dict]:
+    """Step 1: get_series on the trigger (core_pce for an FOMC day) + get_fomc_context.
+    Step 2: finish, quoting only the latest value get_series returned."""
+    messages = params["messages"]
+    task = json.loads(message_text(messages[0]))
+    series_id = task["trigger"]["series_id"] or "core_pce"
+    if len(messages) == 1:
+        return [
+            {"type": "text", "text": "Looking at the series."},
+            {"type": "tool_use", "id": "t1", "name": "get_series", "input": {"id": series_id, "range": "2y"}},
+            {"type": "tool_use", "id": "t2", "name": "get_fomc_context", "input": {}},
+        ]
+    got = tool_results(messages)["get_series"]
+    value = 987.6 if invent_number else got["latest"][1]
+    return [
+        {
+            "type": "tool_use",
+            "id": f"f{len(messages)}",
+            "name": "finish",
+            "input": {
+                "analysis": f"{got['name']} was {value} in the latest reading.",
+                "cited_series": [series_id, "not_a_series"],
+            },
+        }
+    ]
 
 
 class FakeAnthropic:
-    def __init__(self, responders: dict[str, Callable[[dict], dict]] | None = None):
+    def __init__(
+        self,
+        responders: dict[str, Callable[[dict], dict]] | None = None,
+        investigator: Callable[[dict], list[dict]] = good_investigator,
+    ):
         self.messages = FakeMessages({**RESPONDERS, **(responders or {})})
+        self.messages.investigator = investigator
 
     @property
     def calls(self) -> list[dict[str, Any]]:

@@ -9,6 +9,9 @@ over the narrative fields and a deterministic `templates.py` fallback:
     guard fails twice      -> fallback, narrative_source "template"
     refusal / truncation   -> fallback, narrative_source "template"
 
+With no Anthropic key the agent passes `llm=None`: every call goes straight to its
+template (`narrative_source "template"`) and the run still publishes, with a warning.
+
 Guard failures are logged by agents-core to data/guard_failures.jsonl, and every call
 (retries included) counts toward MAX_RUN_USD. `BudgetExceeded` is deliberately not
 caught: §10 says the run fails and the previous latest.json is kept.
@@ -224,8 +227,18 @@ def text_numbers(*texts: str | None) -> list[float]:
     return out
 
 
+def llm_available(llm: LLM) -> bool:
+    """False when no Anthropic key is configured (agents-core raises a plain
+    RuntimeError, not an LLMError, the first time the client is needed)."""
+    try:
+        llm.client  # noqa: B018 - builds the client, which reads the key
+    except RuntimeError:
+        return False
+    return True
+
+
 def _guarded_structured(
-    llm: LLM,
+    llm: LLM | None,
     prompt: dict,
     output_model: type[BaseModel],
     *,
@@ -236,6 +249,8 @@ def _guarded_structured(
     max_tokens: int,
     purpose: str,
 ) -> Guarded:
+    if llm is None:  # no API key: the deterministic template, no call
+        return Guarded(fallback(), "template", attempts=0)
     try:
         return llm.structured(
             TIER,
@@ -273,7 +288,7 @@ def _template_brief_draft(events: list[Event], names: dict[str, str]) -> BriefDr
 
 
 def generate_brief(
-    llm: LLM,
+    llm: LLM | None,
     payload: WhatChangedInput,
     *,
     indicator_source_urls: dict[str, str],
@@ -321,7 +336,7 @@ class FomcReadResult:
     attempts: int
 
 
-def generate_fomc_read(llm: LLM, block: FomcLatest) -> FomcReadResult:
+def generate_fomc_read(llm: LLM | None, block: FomcLatest) -> FomcReadResult:
     """§7.3 FOMC read for a statement block (diff already computed by code)."""
     changes = [Change(idx=c.idx, type=c.type, before=c.before, after=c.after) for c in block.changes]
     target_range = {"lower": block.target_range.lower, "upper": block.target_range.upper}
@@ -389,7 +404,7 @@ def generate_fomc_read(llm: LLM, block: FomcLatest) -> FomcReadResult:
 
 
 def generate_minutes_summary(
-    llm: LLM, *, text: str, meeting_date: date, released_at: date
+    llm: LLM | None, *, text: str, meeting_date: date, released_at: date
 ) -> tuple[str, str]:
     """Returns (summary, narrative_source)."""
     prompt = {

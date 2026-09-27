@@ -1,7 +1,8 @@
 # Runs the macro agent on its two SPEC_MACRO.md §9 schedules through agents-core's
-# reusable workflow, which runs `agents-run macro`, commits data/ (state.json, the
-# cost and guard-failure logs) back to this branch, force-pushes public-data/ to
-# this repo's `data` branch, and notifies the site repo.
+# reusable workflow, which restores the `data` branch into public-data/, runs
+# `agents-run macro`, commits data/ (state.json, the cost and guard-failure logs)
+# back to this branch, force-pushes public-data/ (latest.json, history/, trace.json...)
+# to this repo's `data` branch, and notifies the site repo.
 name: Macro agent
 
 on:
@@ -38,17 +39,21 @@ jobs:
   run:
     needs: gate
     if: needs.gate.outputs.run == 'true'
+    # run-agent.yml declares no permissions since agents-core v0.2.0: its job gets
+    # exactly this grant. contents: write commits data/ and pushes the data branch;
+    # issues: write lets ctx.alert open the §10 "statement extraction failed" issue.
     permissions:
       contents: write
-    uses: Kghaffari26/agents-core/.github/workflows/run-agent.yml@v0.1.0
+      issues: write
+    uses: Kghaffari26/agents-core/.github/workflows/run-agent.yml@v0.3.0
     with:
       agent: macro
       max_run_usd: "0.25"
       site_repo: Kghaffari26/agents-hub
-      # Kept between runs with actions/cache: the full FRED observation history
-      # (so unchanged series skip the observations call) and the previous
-      # public-data/ (so history/ accumulates up to history_keep snapshots).
-      cache_path: |
-        .cache/macro
-        public-data
+      # Kept between runs with actions/cache: the full FRED observation history (so
+      # unchanged series skip the observations call), the ETag copies of the Fed feed
+      # and calendar, and agents-core's HTTP cache (2xx only; the 30-day series->release
+      # lookups and the permanently cached statement pages). public-data/ is no longer
+      # cached: run-agent.yml restores it from the data branch.
+      cache_path: .cache
     secrets: inherit

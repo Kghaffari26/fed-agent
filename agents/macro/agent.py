@@ -23,10 +23,10 @@ from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from agents_core import settings
+from agents_core import settings, tracing
 from agents_core.agent import Agent, AgentResult, RunContext
 from agents_core.http import HostPolicy, Http, HttpError
-from agents_core.llm import tier_config
+from agents_core.llm import LLM, tier_config
 from agents_core.schema import Source
 
 from agents.macro.analyze import (
@@ -35,6 +35,7 @@ from agents.macro.analyze import (
     generate_brief,
     generate_fomc_read,
     generate_minutes_summary,
+    llm_available,
 )
 from agents.macro.build import (
     CURVE_SERIES,
@@ -95,23 +96,36 @@ from agents.macro.fomc import (
     parse_decision,
     parse_votes,
 )
+from agents.macro.investigate import (
+    Investigation as InvestigationResult,
+)
+from agents.macro.investigate import (
+    InvestigatorData,
+    SeriesSource,
+    Trigger,
+    fomc_context,
+    investigate,
+    pick_trigger,
+)
 from agents.macro.pipeline import IndicatorSnapshot, compute_indicator_snapshot
 from agents.macro.schema import (
     Brief,
     BriefBullet,
+    CitedSeries,
     EventOut,
     FomcBlock,
     FomcLatest,
     FomcMinutesOut,
     FomcNextMeeting,
     IndicatorOutput,
+    Investigation,
+    InvestigationLoop,
+    InvestigationTrigger,
     MacroOutput,
 )
 from agents.macro.state import (
-    RELEASE_CACHE_DAYS,
     LastBrief,
     MacroState,
-    ReleaseState,
     SeriesState,
     load_state,
     save_state,
@@ -141,6 +155,12 @@ def obs_cache_dir() -> Path:
     CI keeps it between runs with actions/cache (see agent-macro.yml)."""
     value = os.environ.get("MACRO_OBS_CACHE_DIR")
     return Path(value) if value else DEFAULT_OBS_CACHE_DIR
+
+
+def fed_cache_dir() -> Path:
+    """Conditional-GET copies of the Fed RSS feed and calendar page (next to the
+    observation cache, so CI's actions/cache keeps their ETags too)."""
+    return obs_cache_dir().parent / "fed"
 
 
 def _cache_file(series_id: str) -> Path:
@@ -201,6 +221,12 @@ class MinutesFetch:
 
 
 @dataclass
+class ReleaseRef:
+    release_id: str
+    name: str
+
+
+@dataclass
 class RawData:
     today: date
     retrieved_at: datetime
@@ -208,10 +234,15 @@ class RawData:
     meetings: list[FomcMeeting]
     state: MacroState
     series: dict[str, SeriesFetch]
-    releases: dict[str, ReleaseState]  # by FRED series id
-    release_dates: dict[str, list[date]]  # by release id
+    releases: dict[str, ReleaseRef]  # by FRED series id
+    release_dates: dict[str, list[date]]  # by release id: FRED's full calendar
+    published_dates: dict[str, list[date]]  # by release id: dates FRED actually published
     statement: StatementFetch | None
     minutes: MinutesFetch | None
+    # Release components (CPI components, payrolls by sector) for the investigator.
+    components: dict[str, SeriesFetch] = field(default_factory=dict)
+    # The previous latest.json (restored from the data branch in CI), or None.
+    previous: dict[str, Any] | None = None
     warnings: list[str] = field(default_factory=list)
 
 
@@ -229,13 +260,17 @@ class MacroData:
     minutes_is_new: bool
     new_state: MacroState
     stale: bool
+    investigator: InvestigatorData | None = None
+    trigger: Trigger | None = None
 
 
 class MacroAgent(Agent):
     id = "macro"
     name = "Macro & Fed"
     route = "/macro"
-    schema_version = "1.0.0"
+    # 1.1.0: meta.warnings/meta_schema_version (agents-core v0.2.0), `investigation` (§6.1),
+    # formats typed as agents-core StatFormats. Additive.
+    schema_version = "1.1.0"
     expected_interval_hours = 24
     next_run_hint = "Weekdays ~7:00 PT"
     history_keep = 90
@@ -275,10 +310,29 @@ class MacroAgent(Agent):
                     )
         if len(failed) > MAX_FAILED_SERIES_SHARE * len(config.indicators):
             raise RuntimeError(f"{len(failed)} of {len(config.indicators)} FRED series failed: {failed}")
+        if failed:  # §10: publish the rest, `status: ok` with a warning
+            warnings.append(f"FRED failed for {', '.join(failed)}; showing their last good values (stale)")
 
-        releases, release_dates = self._fetch_releases(ctx.http, config, state, api_key, today, warnings)
+        # Components only feed the release investigator: a failure is a warning.
+        components: dict[str, SeriesFetch] = {}
+        for comp in config.components:
+            try:
+                components[comp.fred_series] = self._fetch_series(
+                    ctx.http, comp.fred_series, api_key, state, config, today
+                )
+            except HttpError as e:
+                cached = load_cached_observations(comp.fred_series)
+                warnings.append(f"FRED failed for component {comp.fred_series} ({e})")
+                if cached:
+                    components[comp.fred_series] = SeriesFetch(
+                        state.series_last_updated(comp.fred_series), cached, updated=False, stale=True
+                    )
+
+        releases, release_dates, published_dates = self._fetch_releases(
+            ctx.http, config, api_key, today, warnings
+        )
         meetings = self._fetch_meetings(ctx.http, today, warnings)
-        statement, minutes = self._fetch_fomc(ctx.http, state, config, warnings)
+        statement, minutes = self._fetch_fomc(ctx, state, warnings)
         return RawData(
             today=today,
             retrieved_at=datetime.now(UTC),
@@ -288,8 +342,11 @@ class MacroAgent(Agent):
             series=series,
             releases=releases,
             release_dates=release_dates,
+            published_dates=published_dates,
             statement=statement,
             minutes=minutes,
+            components=components,
+            previous=ctx.previous_latest(),
             warnings=warnings,
         )
 
@@ -316,45 +373,48 @@ class MacroAgent(Agent):
         self,
         http: Http,
         config: MacroConfig,
-        state: MacroState,
         api_key: str,
         today: date,
         warnings: list[str],
-    ) -> tuple[dict[str, ReleaseState], dict[str, list[date]]]:
-        releases: dict[str, ReleaseState] = {}
+    ) -> tuple[dict[str, ReleaseRef], dict[str, list[date]], dict[str, list[date]]]:
+        """Each series' release (HTTP-cached 30 days, §3), each release's full calendar,
+        and — for non-daily releases, which are the only ones §5.5 can flag delayed —
+        the dates FRED actually published data."""
+        releases: dict[str, ReleaseRef] = {}
         for ind in config.indicators:
             sid = ind.fred_series
-            cached = state.releases.get(sid)
-            fresh_enough = (
-                cached and (today - date.fromisoformat(cached.fetched_on)).days < RELEASE_CACHE_DAYS
-            )
-            if fresh_enough:
-                releases[sid] = cached
+            if sid in releases:
                 continue
             try:
                 info = fetch_release(http, sid, api_key)
-                releases[sid] = ReleaseState(
-                    release_id=info.release_id, name=info.name, fetched_on=today.isoformat()
-                )
+                releases[sid] = ReleaseRef(release_id=info.release_id, name=info.name)
             except (HttpError, KeyError, IndexError) as e:
                 warnings.append(f"release lookup failed for {sid}: {e}")
-                if cached:
-                    releases[sid] = cached
+        non_daily = {
+            releases[i.fred_series].release_id
+            for i in config.indicators
+            if i.frequency != "daily" and i.fred_series in releases
+        }
         release_dates: dict[str, list[date]] = {}
+        published_dates: dict[str, list[date]] = {}
         start = (today - timedelta(days=RELEASE_DATES_LOOKBACK_DAYS)).isoformat()
         for release_id in sorted({r.release_id for r in releases.values()}):
             try:
                 release_dates[release_id] = fetch_release_dates(
                     http, release_id, api_key, realtime_start=start
                 )
+                if release_id in non_daily:
+                    published_dates[release_id] = fetch_release_dates(
+                        http, release_id, api_key, realtime_start=start, published_only=True
+                    )
             except (HttpError, KeyError) as e:
                 warnings.append(f"release dates failed for release {release_id}: {e}")
-        return releases, release_dates
+        return releases, release_dates, published_dates
 
     def _fetch_meetings(self, http: Http, today: date, warnings: list[str]) -> list[FomcMeeting]:
         fallback = load_fomc_calendar(DEFAULT_FOMC_DATES_TOML).meetings
         try:
-            live = fetch_calendar(http)
+            live = fetch_calendar(http, fed_cache_dir() / "fomccalendars.htm")
         except HttpError as e:
             warnings.append(f"FOMC calendar page unavailable ({e}); using config/fomc_dates.toml")
             return fallback
@@ -366,10 +426,11 @@ class MacroAgent(Agent):
         return live
 
     def _fetch_fomc(
-        self, http: Http, state: MacroState, config: MacroConfig, warnings: list[str]
+        self, ctx: RunContext, state: MacroState, warnings: list[str]
     ) -> tuple[StatementFetch | None, MinutesFetch | None]:
+        http = ctx.http
         try:
-            items = fetch_feed(http)
+            items = fetch_feed(http, fed_cache_dir() / "press_monetary.xml")
         except HttpError as e:
             warnings.append(f"Fed RSS feed unavailable ({e}); keeping the previous FOMC block")
             return None, None
@@ -383,10 +444,11 @@ class MacroAgent(Agent):
         if new:
             latest_item = new[-1]
             idx = stmts.index(latest_item)
-            latest = self._statement(http, latest_item.link, warnings)
-            previous = self._statement(http, stmts[idx - 1].link, warnings) if idx > 0 else None
-            if previous is None and state.fomc.latest:
-                previous = _statement_from_block(state.fomc.latest)
+            latest = self._statement(ctx, latest_item.link, warnings)
+            previous = self._statement(ctx, stmts[idx - 1].link, warnings) if idx > 0 else None
+            if previous is None:
+                block = _previous_fomc_latest(ctx.previous_latest(), state)
+                previous = _statement_from_block(block) if block else None
             if latest is not None:
                 statement = StatementFetch(latest=latest, previous=previous)
 
@@ -406,17 +468,24 @@ class MacroAgent(Agent):
                 warnings.append(f"minutes extraction from {item.url} yielded {len(text)} chars; skipped")
         return statement, minutes
 
-    def _statement(self, http: Http, url: str, warnings: list[str]) -> StatementInput | None:
+    def _statement(self, ctx: RunContext, url: str, warnings: list[str]) -> StatementInput | None:
         try:
-            html = fetch_page(http, url)
+            html = fetch_page(ctx.http, url)
         except HttpError as e:
             warnings.append(f"statement page {url} unavailable ({e})")
             return None
         extracted = extract_statement(html)
         if not is_extraction_valid(extracted):
             # §10: layout changed; keep the previous FOMC block rather than publish junk.
-            warnings.append(f"statement extraction from {url} yielded {len(extracted.policy_text)} chars")
+            message = f"statement extraction from {url} yielded {len(extracted.policy_text)} chars"
+            warnings.append(message)
             log.error("statement extraction failed for %s; FOMC block not updated", url)
+            # §10: a human has to fix the parser; one GitHub issue per week at most.
+            ctx.alert(
+                "macro: FOMC statement extraction failed",
+                f"{message} (< 200). The previous FOMC block was kept. The page layout "
+                "probably changed; see agents/macro/fomc.py:extract_statement.",
+            )
             return None
         try:
             decision = parse_decision(extracted.policy_text)
@@ -454,6 +523,7 @@ class MacroAgent(Agent):
                 frequency=ind.frequency,
                 last_updated=date.fromisoformat(fetched.last_updated[:10]) if fetched.last_updated else None,
                 release_dates=raw.release_dates.get(release.release_id, []) if release else [],
+                published_dates=raw.published_dates.get(release.release_id) if release else None,
                 today=today,
             )
             output = build_indicator(
@@ -472,10 +542,11 @@ class MacroAgent(Agent):
         upper, lower = obs.get("DFEDTARU", []), obs.get("DFEDTARL", [])
         fomc_latest: FomcLatest | None = None
         fomc_is_new = raw.statement is not None
+        previous_block = _previous_fomc_latest(raw.previous, state)
         if raw.statement is not None:
             fomc_latest = build_fomc_latest(raw.statement.latest, raw.statement.previous)
-        elif state.fomc.latest:
-            fomc_latest = FomcLatest.model_validate(state.fomc.latest)
+        elif previous_block:
+            fomc_latest = FomcLatest.model_validate(previous_block)
         if fomc_latest is not None and (fomc_is_new or fomc_latest.crosscheck_pending):
             fomc_latest, warning = crosscheck_target_range(fomc_latest, upper, lower)
             if warning:
@@ -496,8 +567,10 @@ class MacroAgent(Agent):
             for event in minutes_events(item.meeting_date, item.released_at, is_new=True):
                 event.facts["source_url"] = item.url
                 events.append(event)
-        elif state.fomc.minutes:
-            minutes = FomcMinutesOut.model_validate(state.fomc.minutes)
+        else:
+            previous_minutes = _previous_minutes(raw.previous, state)
+            if previous_minutes:
+                minutes = FomcMinutesOut.model_validate(previous_minutes)
 
         target_range = (
             {"lower": fomc_latest.target_range.lower, "upper": fomc_latest.target_range.upper}
@@ -534,8 +607,8 @@ class MacroAgent(Agent):
             top = events[0]
             indicator_id = top.id.split(":")[1] if ":" in top.id else None
             headline = headline_for_event(top, indicator_name=indicator_names.get(indicator_id))
-        elif state.last_brief and state.last_brief.headline:
-            headline = state.last_brief.headline
+        elif _previous_headline(raw.previous, state):
+            headline = _previous_headline(raw.previous, state)
         else:
             by_id = {i.id: i for i in indicators}
             headline = quiet_headline(
@@ -589,7 +662,7 @@ class MacroAgent(Agent):
                     last_updated=f.last_updated,
                     observations=trim_observations({o.date.isoformat(): o.value for o in f.observations}),
                 )
-                for sid, f in raw.series.items()
+                for sid, f in {**raw.series, **raw.components}.items()
                 if not f.stale
             },
             fomc=state.fomc,
@@ -599,11 +672,29 @@ class MacroAgent(Agent):
                 for name in ("inflation", "labor", "growth", "policy", "curve")
             },
             delayed=sorted(i for i, t in timings.items() if t.delayed),
-            releases=raw.releases,
         )
-        for sid, f in raw.series.items():  # keep a failed series' previous state untouched
+        for sid, f in {**raw.series, **raw.components}.items():  # keep a failed series' state
             if f.stale and sid in state.series:
                 new_state.series[sid] = state.series[sid]
+
+        investigator = InvestigatorData(
+            today=today,
+            series={
+                **{
+                    c.id: SeriesSource(c, raw.components[c.fred_series].observations, kind="component")
+                    for c in cfg.components
+                    if c.fred_series in raw.components
+                },
+                **{
+                    i.id: SeriesSource(i, raw.series[i.fred_series].observations)
+                    for i in cfg.indicators
+                    if i.fred_series in raw.series
+                },
+            },
+            components={
+                r: [c.id for c in cfg.components_for(r)] for r in {c.release for c in cfg.components}
+            },
+        )
 
         return MacroData(
             raw=raw,
@@ -618,6 +709,8 @@ class MacroAgent(Agent):
             minutes_is_new=minutes_is_new,
             new_state=new_state,
             stale=any(f.stale for f in raw.series.values()),
+            investigator=investigator,
+            trigger=pick_trigger(events),
         )
 
     def summarize_dry_run(self, data: MacroData) -> str:
@@ -638,6 +731,7 @@ class MacroAgent(Agent):
                 f"  fomc {f.date} {f.decision} {f.target_range.lower}-{f.target_range.upper} "
                 f"change_bp={f.change_bp} changes={len(f.changes)} new={data.fomc_is_new}"
             )
+        lines.append(f"  investigator trigger: {self.summarize_dry_run_trigger(data)}")
         for w in data.raw.warnings:
             lines.append(f"  warning: {w}")
         return "\n".join(lines)
@@ -650,6 +744,15 @@ class MacroAgent(Agent):
         model = tier_config(TIER).model
         indicator_names = {i.id: i.name for i in raw.config.indicators}
         source_urls = {i.id: i.source_url for i in raw.config.indicators}
+        warnings = list(raw.warnings)
+
+        # No Anthropic key: every narrative is its deterministic template and the run
+        # still publishes (status ok, with a warning) instead of failing.
+        llm: LLM | None = ctx.llm
+        needs_llm = bool(data.events) or data.fomc_is_new or data.minutes_is_new
+        if needs_llm and not llm_available(ctx.llm):
+            llm = None
+            warnings.append("No Anthropic API key configured: published template narrative only")
 
         # What-changed brief (§7.2): only when something happened.
         if data.events:
@@ -665,7 +768,7 @@ class MacroAgent(Agent):
                 "inflation_target_pct": 2,
             }
             result = generate_brief(
-                ctx.llm,
+                llm,
                 WhatChangedInput(as_of=raw.today.isoformat(), events=top, context=context),
                 indicator_source_urls=source_urls,
                 indicator_names=indicator_names,
@@ -684,7 +787,6 @@ class MacroAgent(Agent):
                 narrative_source=brief.narrative_source,
                 model=brief.model,
                 generated_at=now.isoformat(),
-                headline=data.headline,
             )
         else:
             brief = _reused_brief(state.last_brief, now)
@@ -692,11 +794,8 @@ class MacroAgent(Agent):
         # FOMC read (§7.3): only for a statement first seen this run.
         fomc_latest = data.fomc_latest
         if fomc_latest is not None and data.fomc_is_new:
-            fomc_latest = fomc_latest.model_copy(
-                update={"read": generate_fomc_read(ctx.llm, fomc_latest).read}
-            )
+            fomc_latest = fomc_latest.model_copy(update={"read": generate_fomc_read(llm, fomc_latest).read})
         if fomc_latest is not None:
-            state.fomc.latest = fomc_latest.model_dump(mode="json")
             state.fomc.latest_statement_date = fomc_latest.date.isoformat()
 
         # Minutes summary (§5.7 step 6).
@@ -704,20 +803,24 @@ class MacroAgent(Agent):
         if minutes is not None and data.minutes_is_new:
             if raw.config.settings.summarize_minutes:
                 summary, source = generate_minutes_summary(
-                    ctx.llm,
+                    llm,
                     text=raw.minutes.text,
                     meeting_date=minutes.meeting_date,
                     released_at=minutes.released_at,
                 )
                 minutes = minutes.model_copy(update={"summary": summary, "narrative_source": source})
-            state.fomc.minutes = minutes.model_dump(mode="json")
             state.fomc.latest_minutes_date = minutes.meeting_date.isoformat()
+
+        # Release investigator (§6.1): at most one agent loop, for a new high-priority
+        # release or FOMC decision; otherwise the previous investigation is carried over.
+        investigation = self._investigation(ctx, data, llm, fomc_latest, now, model, warnings)
 
         body = {k: v for k, v in data.body.items() if k != "next_meeting"}
         body["brief"] = brief.model_dump(mode="json")
         body["fomc"] = FomcBlock(
             latest=fomc_latest, next_meeting=data.body["next_meeting"], minutes=minutes
         ).model_dump(mode="json")
+        body["investigation"] = investigation.model_dump(mode="json") if investigation else None
         for warning in raw.warnings:
             log.warning("%s", warning)
 
@@ -739,8 +842,106 @@ class MacroAgent(Agent):
             key_stats=build_key_stats(data.indicators),
             data_changed=bool(data.events),
             items_count=len(data.indicators),
-            status="stale" if data.stale else "ok",
+            # §10: a failed series is `stale: true` on its indicator and a warning here.
+            status="ok",
+            warnings=warnings,
         )
+
+    def _investigation(
+        self,
+        ctx: RunContext,
+        data: MacroData,
+        llm: LLM | None,
+        fomc_latest: FomcLatest | None,
+        now: datetime,
+        model: str,
+        warnings: list[str],
+    ) -> Investigation | None:
+        previous = (data.raw.previous or {}).get("investigation")
+        if data.trigger is None or data.investigator is None:
+            if not previous:
+                return None
+            carried = Investigation.model_validate(previous)
+            if carried.reused_from_run_id is None:
+                run_id = (data.raw.previous or {}).get("meta", {}).get("run_id")
+                carried = carried.model_copy(update={"reused_from_run_id": run_id})
+            return carried
+
+        regimes = data.body["regimes"]
+        data.investigator.fomc = fomc_context(
+            fomc_latest=fomc_latest,
+            next_meeting=data.body["next_meeting"],
+            policy_regime=regimes["policy"]["label"] if "policy" in regimes else None,
+        )
+        with tracing.span("custom", "macro:investigate", trigger=data.trigger.event_id) as sp:
+            result = investigate(llm, data.investigator, data.trigger)
+            sp.set(narrative_source=result.narrative_source, cited=len(result.cited_series))
+        if result.warning:
+            warnings.append(result.warning)
+        return _investigation_block(result, data.investigator, now, model)
+
+    def summarize_dry_run_trigger(self, data: MacroData) -> str:
+        return data.trigger.event_id if data.trigger else "none"
+
+
+def _investigation_block(
+    result: InvestigationResult, investigator: InvestigatorData, now: datetime, model: str
+) -> Investigation:
+    loop = result.loop
+    return Investigation(
+        trigger=InvestigationTrigger(
+            event_id=result.trigger.event_id,
+            type=result.trigger.type,
+            indicator_id=result.trigger.indicator_id,
+        ),
+        analysis=result.draft.analysis,
+        cited_series=[
+            CitedSeries(
+                id=i,
+                name=investigator.series[i].config.name,
+                fred_series=investigator.series[i].config.fred_series,
+                url=investigator.series[i].url,
+            )
+            for i in result.cited_series
+        ],
+        narrative_source=result.narrative_source,
+        model=model if result.narrative_source == "llm" else None,
+        generated_at=now,
+        loop=InvestigationLoop(
+            steps=loop.steps,
+            tool_calls=loop.tools_called(),
+            stop_reason=loop.stop_reason,
+            cost_usd=round(loop.usd, 6),
+            guard_attempts=loop.guard_attempts,
+        )
+        if loop is not None
+        else None,
+    )
+
+
+# ---- the previous run's output (restored from the data branch) --------------------------
+#
+# A no-change run republishes the previous FOMC block, minutes and headline. They come
+# from the previous latest.json; state.json only held them before agents-core v0.2.0
+# restored the data branch in CI, so they're read from there once, as a migration.
+
+
+def _previous_fomc_latest(previous: dict | None, state: MacroState) -> dict | None:
+    if previous is not None:
+        return (previous.get("fomc") or {}).get("latest")
+    return state.fomc.latest
+
+
+def _previous_minutes(previous: dict | None, state: MacroState) -> dict | None:
+    if previous is not None:
+        return (previous.get("fomc") or {}).get("minutes")
+    return state.fomc.minutes
+
+
+def _previous_headline(previous: dict | None, state: MacroState) -> str | None:
+    if previous is not None:
+        return previous.get("headline")
+    return state.last_brief.headline if state.last_brief else None
 
 
 def _statement_from_block(block: dict) -> StatementInput | None:

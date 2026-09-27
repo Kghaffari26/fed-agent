@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from agents_core.schema import StatFormat
+
 from agents.macro.config import IndicatorConfig, Transform
 
 # Short keys used in event facts and the §6 secondary labels.
@@ -36,7 +38,9 @@ TRANSFORM_LABELS: dict[str, str] = {
     "level": "Level",
 }
 
-_LEVEL_FORMATS = {
+# Every format published here is one of agents-core's standard `StatFormat`s (the
+# schema enforces it, and tests/test_display.py checks every configured indicator).
+_LEVEL_FORMATS: dict[str, StatFormat] = {
     "percent": "percent",
     "pp": "pp_signed",
     "count": "count",
@@ -45,7 +49,7 @@ _LEVEL_FORMATS = {
     "index": "decimal1",
     "dollars": "currency",
 }
-_DELTA_FORMATS = {
+_DELTA_FORMATS: dict[str, StatFormat] = {
     "percent": "pp_signed",
     "percent_signed": "pp_signed",
     "pp_signed": "pp_signed",
@@ -59,7 +63,7 @@ _DELTA_FORMATS = {
 
 @dataclass(frozen=True)
 class Display:
-    format: str
+    format: StatFormat
     decimals: int
     divisor: float = 1.0
 

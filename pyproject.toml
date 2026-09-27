@@ -40,4 +40,4 @@ build-backend = "hatchling.build"
 packages = ["agents", "scripts"]
 
 [tool.uv.sources]
-agents-core = { git = "https://github.com/Kghaffari26/agents-core", rev = "v0.1.0" }
+agents-core = { git = "https://github.com/Kghaffari26/agents-core", rev = "v0.3.0" }

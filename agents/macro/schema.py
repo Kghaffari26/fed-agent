@@ -16,7 +16,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Literal
 
-from agents_core.schema import AgentOutput, KeyStat, Timestamp
+from agents_core.schema import AgentOutput, KeyStat, StatFormat, Timestamp
 from pydantic import BaseModel, Field
 
 NarrativeSource = Literal["llm", "template"]
@@ -64,9 +64,10 @@ class Brief(BaseModel):
 class ValueBlock(BaseModel):
     label: str
     value: float
-    format: str
+    # agents-core's standard formats only (the site renders exactly these).
+    format: StatFormat
     delta: float | None = None
-    delta_format: str | None = None
+    delta_format: StatFormat | None = None
     good_direction: GoodDirection | None = None
 
 
@@ -74,7 +75,7 @@ class RevisionBlock(BaseModel):
     period_label: str
     old: float
     new: float
-    format: str
+    format: StatFormat
 
 
 class SeriesData(BaseModel):
@@ -212,6 +213,43 @@ class EventOut(BaseModel):
     facts: dict = Field(default_factory=dict)
 
 
+# ---- §6.1 investigation (additive; agents-core v0.3.0 agent loop) ------------------------
+
+
+class InvestigationTrigger(BaseModel):
+    event_id: str
+    type: str
+    indicator_id: str | None = None
+
+
+class CitedSeries(BaseModel):
+    id: str
+    name: str
+    fred_series: str
+    url: str
+
+
+class InvestigationLoop(BaseModel):
+    """What the agent loop did. Null when no loop ran (no API key)."""
+
+    steps: int
+    tool_calls: list[str] = Field(default_factory=list)
+    stop_reason: str
+    cost_usd: float
+    guard_attempts: int = 0
+
+
+class Investigation(BaseModel):
+    trigger: InvestigationTrigger
+    analysis: str
+    cited_series: list[CitedSeries] = Field(default_factory=list)
+    narrative_source: NarrativeSource
+    model: str | None = None
+    generated_at: Timestamp
+    reused_from_run_id: str | None = None
+    loop: InvestigationLoop | None = None
+
+
 class MacroOutput(AgentOutput):
     headline: str
     key_stats: list[KeyStat]
@@ -222,3 +260,6 @@ class MacroOutput(AgentOutput):
     fomc: FomcBlock
     calendar: list[CalendarEntry] = Field(default_factory=list)
     events: list[EventOut] = Field(default_factory=list)
+    # §6.1, added in schema 1.1.0: the release investigator's latest analysis, or null
+    # before the first high-priority release.
+    investigation: Investigation | None = None

@@ -16,6 +16,9 @@ from agents_core.http import Http
 FRED_HOST = "api.stlouisfed.org"
 FRED_BASE = "https://api.stlouisfed.org/fred"
 RELEASE_DATES_TTL_SECONDS = 12 * 3600
+# §3: a series' release is cached for 30 days. agents-core's HTTP cache stores 2xx
+# responses only (v0.2.0), and CI keeps .cache/ between runs, so it lives there.
+RELEASE_TTL_SECONDS = 30 * 24 * 3600
 
 
 @dataclass
@@ -79,10 +82,11 @@ def fetch_observations(
 
 
 def fetch_release(http: Http, series_id: str, api_key: str) -> ReleaseInfo:
-    """The release a series belongs to (§3: cached 30 days — by `state.py`, so the
-    cache survives fresh CI checkouts)."""
+    """The release a series belongs to (§3: cached 30 days)."""
     resp = http.get(
-        f"{FRED_BASE}/series/release", params=_params(api_key, series_id=series_id), ttl_seconds=0
+        f"{FRED_BASE}/series/release",
+        params=_params(api_key, series_id=series_id),
+        ttl_seconds=RELEASE_TTL_SECONDS,
     )
     release = resp.json()["releases"][0]
     return ReleaseInfo(release_id=str(release["id"]), name=release["name"])
@@ -92,15 +96,23 @@ def fetch_release_id(http: Http, series_id: str, api_key: str) -> str:
     return fetch_release(http, series_id, api_key).release_id
 
 
-def fetch_release_dates(http: Http, release_id: str, api_key: str, *, realtime_start: str) -> list[date]:
-    """Scheduled release dates on/after `realtime_start`, including future ones with
-    no data yet (§3, powers the calendar; §5.5 uses the most recent past one)."""
+def fetch_release_dates(
+    http: Http, release_id: str, api_key: str, *, realtime_start: str, published_only: bool = False
+) -> list[date]:
+    """Release dates on/after `realtime_start`.
+
+    By default FRED's full calendar, including scheduled dates with no data yet (§3,
+    powers the calendar). With `published_only=True`, only the dates on which FRED
+    actually published data for the release — its real release status, which §5.5's
+    delayed check needs: a past scheduled date that isn't in this list hasn't been
+    published; one that is was published, even if a given series didn't change.
+    """
     resp = http.get(
         f"{FRED_BASE}/release/dates",
         params=_params(
             api_key,
             release_id=release_id,
-            include_release_dates_with_no_data="true",
+            include_release_dates_with_no_data="false" if published_only else "true",
             realtime_start=realtime_start,
         ),
         ttl_seconds=RELEASE_DATES_TTL_SECONDS,

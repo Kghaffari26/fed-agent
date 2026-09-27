@@ -124,17 +124,22 @@ def test_compare_calendars_reports_disagreement():
     assert len(compare_calendars(live, local, since=date(2026, 10, 1))) == 2
 
 
-def test_fetch_feed_never_cached(tmp_path):
+def test_fetch_feed_is_a_conditional_get(tmp_path):
+    """Checked with the server on every run; a 304 reuses the previous download."""
     calls = []
+    body = (FIXTURES / "press_monetary.xml").read_bytes()
 
     def handler(request: httpx.Request) -> httpx.Response:
-        calls.append(str(request.url))
-        return httpx.Response(200, content=(FIXTURES / "press_monetary.xml").read_bytes())
+        calls.append(request.headers.get("If-None-Match"))
+        if request.headers.get("If-None-Match") == '"v1"':
+            return httpx.Response(304)
+        return httpx.Response(200, content=body, headers={"ETag": '"v1"'})
 
+    dest = tmp_path / "fed" / "press_monetary.xml"
     with _http(tmp_path, handler) as http:
-        assert len(fetch_feed(http)) == 15
-        fetch_feed(http)
-    assert len(calls) == 2
+        assert len(fetch_feed(http, dest)) == 15
+        assert len(fetch_feed(http, dest)) == 15
+    assert calls == [None, '"v1"']
 
 
 def test_fetch_page_cached_permanently(tmp_path):

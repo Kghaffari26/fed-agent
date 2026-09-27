@@ -106,19 +106,39 @@ class ReleaseTiming:
 
 
 def release_timing(
-    *, frequency: str, last_updated: date | None, release_dates: list[date], today: date
+    *,
+    frequency: str,
+    last_updated: date | None,
+    release_dates: list[date],
+    today: date,
+    published_dates: list[date] | None = None,
 ) -> ReleaseTiming:
     """`last_updated` is the date part of FRED's `last_updated`, which is when the
     latest print (or revision) landed — published as `released_at`.
 
-    Delayed detection only applies to non-daily series: daily release calendars
-    (H.15 and friends) list every business day and FRED often posts a day behind.
+    `delayed` (§5.5) goes by FRED's own release status, not by whether this series
+    moved: the most recent past scheduled date must be more than the grace period
+    old, missing from the dates FRED actually published data for the release
+    (`published_dates`), and the series not updated since. So a release FRED shows as
+    published isn't delayed even when this series wasn't revised in it (the GDP case:
+    the release posted on 2026-08-26 without touching A191RL1Q225SBEA), and a date
+    that is scheduled but not yet due is never delayed. Without `published_dates`
+    (that lookup failed) nothing is flagged: a false "delayed" is worse than a late one.
+
+    Daily series are skipped: daily release calendars (H.15 and friends) list every
+    business day and FRED often posts a day behind.
     """
     past = [d for d in release_dates if d <= today]
     last_scheduled = max(past) if past else None
     upcoming = [d for d in release_dates if d > today or (d == today and (last_updated or date.min) < d)]
     delayed = False
-    if frequency != "daily" and last_scheduled is not None and last_updated is not None:
+    if (
+        frequency != "daily"
+        and last_scheduled is not None
+        and last_updated is not None
+        and published_dates is not None
+        and last_scheduled not in published_dates
+    ):
         delayed = is_delayed(
             scheduled_release=last_scheduled, today=today, has_new_observation=last_updated >= last_scheduled
         )
