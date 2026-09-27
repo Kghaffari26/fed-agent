@@ -7,7 +7,7 @@ is `Kghaffari26/agents-hub`). The full build spec is [`docs/specs/SPEC_MACRO.md`
 ## Rules
 
 - **Never write your own http/llm/costs/guards/publish/runner/loop/tracing/evals module.** All of that comes
-  from `agents-core` (pinned `v0.3.0` in pyproject.toml): `agents_core.http.Http` (fetch_fred/fetch_fed take
+  from `agents-core` (pinned `v0.3.1` in pyproject.toml): `agents_core.http.Http` (fetch_fred/fetch_fed take
   it; `Http.download` for conditional GETs), `agents_core.llm.LLM` + `agents_core.guards.fields_guard`
   (analyze.py), `agents_core.agent_loop` (investigate.py), `agents_core.tracing` (trace.json is automatic),
   `agents_core.evals` (evals/macro/suites.py), `agents_core.costs`, `agents_core.publish`, and the runner. Don't modify agents-core from here; if it's missing something,
@@ -62,7 +62,8 @@ uv run agents-run macro --dry-run              # live fetch + compute, no LLM, n
 uv run agents-run macro                        # real run (FRED_API_KEY + ANTHROPIC_API_KEY/AGENTS_ANTHROPIC_API_KEY)
 uv run python scripts/verify_macro_series.py   # live FRED check of every configured series
 uv run python scripts/export_schema.py         # regenerate schemas/macro.schema.json
-uv run python evals/run_macro.py [--no-llm]    # all eval suites, one total cap ($0.60 default)
+uv run agents-evals run evals.macro.suites:TEMPLATES evals.macro.suites:BRIEF evals.macro.suites:FOMC_READ evals.macro.suites:INVESTIGATOR --total-max-usd 0.60
+                                               # all eval suites, one total cap (TEMPLATES alone: no LLM)
 uv run agents-evals compare --threshold 0.10   # score deltas vs the previous evals/history.jsonl entry
 uv run python scripts/record_eval_series.py    # re-record the investigator evals' real FRED history
 ```

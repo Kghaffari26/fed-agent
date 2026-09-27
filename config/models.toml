@@ -9,8 +9,8 @@
 thinking = "disabled"
 
 
-# §7.1 asks for temperature 0. agents-core v0.2.0 added per-tier `temperature`, but
-# it can't be used here: claude-sonnet-5 (smart) rejects sampling parameters, and the
-# installed anthropic SDK's `messages.parse` (every structured call, incl. the eval
-# judge on the fast tier) doesn't accept `temperature` at all (TypeError, seen live on
-# 2026-09-27). Left unset on both tiers; recorded in STATUS.md as an agents-core gap.
+# §7.1 asks for temperature 0. The fast tier (only the eval judge uses it) sets it;
+# agents-core v0.3.1 sends it through `extra_body`, so structured calls accept it.
+# claude-sonnet-5 (smart) rejects sampling parameters, so smart leaves it unset.
+[tiers.fast]
+temperature = 0

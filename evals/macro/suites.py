@@ -1,6 +1,7 @@
 """The macro agent's evals (SPEC_MACRO.md §11) as `agents_core.evals` suites.
 
-    uv run python evals/run_macro.py [--no-llm] [--max-usd 0.60]   # all suites, one total cap
+    uv run agents-evals run evals.macro.suites:TEMPLATES evals.macro.suites:BRIEF \
+        evals.macro.suites:FOMC_READ evals.macro.suites:INVESTIGATOR --total-max-usd 0.60
     uv run agents-evals run evals.macro.suites:BRIEF                # one suite (its own cap)
     uv run agents-evals compare --threshold 0.05                    # vs the previous history entry
 
@@ -25,8 +26,8 @@ Suites:
                 delayed-release days must not (a trajectory scorer passes on those only
                 if no loop ran).
 
-Run through evals/run_macro.py, guard failures during evals go to
-evals/results/guard_failures.jsonl, not the agent's data/guard_failures.jsonl; LLM
+With AGENTS_CORE_GUARD_FAILURES_PATH=evals/results/guard_failures.jsonl (as evals.yml sets it),
+guard failures during evals go there, not the agent's data/guard_failures.jsonl; LLM
 spend goes to data/eval_costs.jsonl (agents-core's default;
 it never enters the published costs-summary.json).
 """

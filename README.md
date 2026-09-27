@@ -158,7 +158,7 @@ has its own $0.08 cap inside that.
 ## Running it
 
 `agents-core` (the shared framework: HTTP, LLM, number guard, costs, publishing, runner) is a dependency
-pinned to `v0.3.0`. This repo registers the agent through the `agents_core.agents` entry point, so:
+pinned to `v0.3.1`. This repo registers the agent through the `agents_core.agents` entry point, so:
 
 ```bash
 cp .env.example .env   # FRED_API_KEY (free) and ANTHROPIC_API_KEY (or AGENTS_ANTHROPIC_API_KEY)
@@ -167,17 +167,18 @@ uv run agents-run macro --dry-run   # fetch + compute; prints indicators, regime
 uv run agents-run macro             # full run: publishes to public-data/, updates data/
 uv run pytest                        # 312 tests, no network
 uv run python scripts/verify_macro_series.py   # confirms every configured FRED series resolves (live)
-uv run python evals/run_macro.py     # all eval suites; real LLM calls, $0.60 total cap
+uv run agents-evals run evals.macro.suites:{TEMPLATES,BRIEF,FOMC_READ,INVESTIGATOR} --total-max-usd 0.60
+                                     # all eval suites; real LLM calls, one $0.60 total cap
 uv run agents-evals compare          # score deltas vs the previous history entry
 ```
 
 A run writes the agents-core data-branch contract to `public-data/` (`latest.json`, `history/`,
 `manifest-entry.json`, `costs-summary.json`, `schema.json`, `trace.json`, `trace.schema.json`) and its own
 state to `data/` (`macro/state.json`, `costs.jsonl`, `guard_failures.jsonl`). In CI,
-`.github/workflows/agent-macro.yml` calls agents-core's reusable `run-agent.yml@v0.3.0` (granting
+`.github/workflows/agent-macro.yml` calls agents-core's reusable `run-agent.yml@v0.3.1` (granting
 `contents: write` and `issues: write`). That workflow restores the `data` branch into `public-data/`, runs the
 agent, commits `data/` back, and force-pushes `public-data/` to the `data` branch.
-`.github/workflows/evals.yml` calls `run-evals.yml@v0.3.0` on pull requests.
+`.github/workflows/evals.yml` calls `run-evals.yml@v0.3.1` on pull requests.
 
 ## Repo layout
 
@@ -188,7 +189,7 @@ agents/macro/     # agent.py (the agents-core Agent), config, fetch_fred, fetch_
 config/           # macro.toml (indicators), fomc_dates.toml (fallback calendar), models.toml (tier override)
 scripts/          # verify_macro_series.py, export_schema.py, fomc_gate.py (workflow gate),
                   # record_eval_series.py (real FRED history for the investigator evals)
-evals/            # macro/suites.py (agents_core.evals suites), run_macro.py, scenario fixtures, real FOMC
+evals/            # macro/suites.py (agents_core.evals suites), scenario fixtures, real FOMC
                   # statement pairs + tone labels, history.jsonl, results/
 tests/            # unit + end-to-end tests; real FRED/federalreserve.gov responses as fixtures
 data/             # committed run state (state.json, costs.jsonl, guard_failures.jsonl)

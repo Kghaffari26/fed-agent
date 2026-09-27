@@ -81,3 +81,12 @@ One line per judgment call made while working unattended overnight, newest last.
 - 2026-09-27: schema_version bumped to 1.1.0 (additive: meta.warnings/meta_schema_version, `investigation`, typed formats).
 - 2026-09-27: Ran `ruff format` repo-wide this time (two previously unformatted files, style_check.py and test_config.py, were reformatted) so `ruff format --check .` is clean.
 - 2026-09-27: Committed on the session branch, then fast-forwarded `main` to it and pushed both, as the task asked.
+
+## 2026-09-27 session (agents-core v0.3.1)
+
+- 2026-09-27: Upgraded with the exact `uv add ...@v0.3.1` line; bumped both workflow refs and the docs' version mentions (README, CLAUDE.md, docs/agents/macro.md) to v0.3.1.
+- 2026-09-27: Re-enabled `temperature = 0` on the fast tier in models.toml (as tried in v0.3.0) instead of `LLMJudge(temperature=0)`: the judge is the fast tier's only user, and the config is where §7.1's setting lived. Smart stays unset (the model rejects sampling params, a separate reason from the v0.3.0 bug).
+- 2026-09-27: Deleted evals/run_macro.py rather than slimming it: the four suites go straight to `agents-evals run ... --total-max-usd`; its `--no-llm` is now "run TEMPLATES alone", and the eval guard-failures path moved into evals.yml's `eval_command` env prefix.
+- 2026-09-27: evals.yml keeps `max_usd: "0.60"` per suite and adds `total_max_usd: "0.60"`, so the total bound is unchanged from the wrapper's behavior.
+- 2026-09-27: Temperature smoke check was one direct `LLM.structured` call on the fast tier from a scratch script (costs logged to scratch, not data/), not an eval run, so evals/history.jsonl gets no partial entry.
+- 2026-09-27: Pushed to `main` as the task asked (and the session branch to the same commit).

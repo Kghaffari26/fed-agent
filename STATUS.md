@@ -10,7 +10,20 @@ pieces:
 
 See `DECISIONS.md` (2026-09-27 section) for each judgment call.
 
-## Done this session
+## agents-core v0.3.1 (2026-09-27, later)
+
+- Pin, lockfile and both workflow `uses:` refs are on **v0.3.1**.
+- **Fast-tier `temperature = 0` is back** (config/models.toml; only the eval judge uses that tier). v0.3.1
+  sends it in `extra_body`. Live smoke check: one structured Haiku call, `extra_body={"temperature": 0.0}`,
+  no `TypeError`; $0.0010 over two calls (the first one's cost logging failed in the scratch script).
+  Smart stays unset: claude-sonnet-5 rejects sampling parameters.
+- **`evals/run_macro.py` is gone.** Evals run through
+  `agents-evals run evals.macro.suites:{TEMPLATES,BRIEF,FOMC_READ,INVESTIGATOR} --total-max-usd 0.60`;
+  evals.yml passes `total_max_usd: "0.60"` and sets `AGENTS_CORE_GUARD_FAILURES_PATH` in `eval_command`.
+- No test fake asserted `kwargs["temperature"]`, so no test changes. 312 tests and ruff pass.
+- The two gaps below about temperature and the per-suite cap are fixed in v0.3.1.
+
+## Done this session (v0.3.0)
 
 ### agents-core v0.3.0 (`uv add ...@v0.3.0`)
 
@@ -74,7 +87,7 @@ has a `trace_summary`. The agent adds a `macro:investigate` span. Tests assert:
 `evals/macro/suites.py` has four suites: `macro-templates`, `macro-brief`, `macro-fomc-read` and
 `macro-investigator`.
 
-- `evals/run_macro.py` runs them all under one total cap.
+- `agents-evals run ... --total-max-usd` runs them all under one total cap (was `evals/run_macro.py`).
 - Results go to `evals/results/2026-09-27.json`, and history to `evals/history.jsonl`.
 - `.github/workflows/evals.yml` calls `run-evals.yml@v0.3.0` on PRs that touch `agents/`, `config/`,
   `evals/` or the lockfile, with `max_usd: "0.60"` and `regression_threshold: "0.10"`.
@@ -157,12 +170,12 @@ yet. That run migrates the state automatically.
 
 ## agents-core: gaps found (none blocking; agents-core not modified)
 
-- **Per-tier `temperature` breaks structured calls.** `LLM.structured` passes `temperature` to
+- **(Fixed in v0.3.1.) Per-tier `temperature` breaks structured calls.** `LLM.structured` passes `temperature` to
   `client.messages.parse`. With the installed anthropic SDK that raises
   `TypeError: Messages.parse() got an unexpected keyword argument 'temperature'`, seen live with the eval
   judge on the fast tier. `complete`/`converse` (`messages.create`) are unaffected. The fix belongs in
   agents-core: pass it through `extra_body`, or pin an SDK version that supports it.
-- **`agents-evals run` caps each suite separately.** A repo with several suites needs its own wrapper for one
+- **(Fixed in v0.3.1.) `agents-evals run` caps each suite separately.** A repo with several suites needs its own wrapper for one
   total cap: here, `evals/run_macro.py` passes each suite what's left.
 - **`LLMJudge` renders `case.input` verbatim.** For a loop whose real input differs from the fixture, the case
   input has to be rebuilt to what the loop saw, or the judge grades against the wrong numbers (case study 5).

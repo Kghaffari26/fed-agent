@@ -1,12 +1,13 @@
 # macro agent: eval summary
 
 The evals are `agents_core.evals` suites in `evals/macro/suites.py`. Run them with
-`uv run python evals/run_macro.py`: real LLM calls, one total cap of $0.60, and `--no-llm` for the
-deterministic suite only.
+`uv run agents-evals run evals.macro.suites:TEMPLATES evals.macro.suites:BRIEF evals.macro.suites:FOMC_READ
+evals.macro.suites:INVESTIGATOR --total-max-usd 0.60`: real LLM calls under one total cap of $0.60 (agents-core
+v0.3.1). `TEMPLATES` alone is the deterministic, no-LLM suite.
 
 - Each run appends one line per suite to `evals/history.jsonl` and writes `evals/results/<date>.json`.
 - `uv run agents-evals compare` shows the score deltas against the previous entry.
-- On pull requests, `.github/workflows/evals.yml` runs `run-evals.yml@v0.3.0`. It fails the PR when a score
+- On pull requests, `.github/workflows/evals.yml` runs `run-evals.yml@v0.3.1`. It fails the PR when a score
   drops by more than 0.10.
 
 Latest run: 2026-09-27, `evals/results/2026-09-27.json`, $0.14 for all four suites.
