@@ -1,0 +1,299 @@
+{
+  "trace_schema_version": "1.0.0",
+  "agent": "macro",
+  "run_id": "2026-09-27T00-34-04Z-35e0ad",
+  "summary": {
+    "steps": 2,
+    "tool_calls": 3,
+    "llm_calls": 5,
+    "total_latency_ms": 63404.954,
+    "cost_usd": 0.055036,
+    "guard_retries": 0
+  },
+  "_excerpt_of": "public-data/trace.json from the same run: the run/phase spans, every LLM call, and the release investigator's agent_loop subtree (HTTP spans omitted)",
+  "spans": [
+    {
+      "id": "s1",
+      "parent_id": null,
+      "kind": "run",
+      "name": "macro",
+      "started_at": "2026-09-27T00:34:04.478Z",
+      "duration_ms": 63404.954,
+      "status": "ok",
+      "error": null,
+      "attrs": {
+        "run_id": "2026-09-27T00-34-04Z-35e0ad",
+        "status": "ok"
+      }
+    },
+    {
+      "id": "s2",
+      "parent_id": "s1",
+      "kind": "phase",
+      "name": "fetch",
+      "started_at": "2026-09-27T00:34:04.478Z",
+      "duration_ms": 41348.988,
+      "status": "ok",
+      "error": null,
+      "attrs": {}
+    },
+    {
+      "id": "s131",
+      "parent_id": "s1",
+      "kind": "phase",
+      "name": "transform",
+      "started_at": "2026-09-27T00:34:45.827Z",
+      "duration_ms": 83.115,
+      "status": "ok",
+      "error": null,
+      "attrs": {}
+    },
+    {
+      "id": "s132",
+      "parent_id": "s1",
+      "kind": "phase",
+      "name": "analyze",
+      "started_at": "2026-09-27T00:34:45.910Z",
+      "duration_ms": 21955.254,
+      "status": "ok",
+      "error": null,
+      "attrs": {}
+    },
+    {
+      "id": "s133",
+      "parent_id": "s132",
+      "kind": "llm_call",
+      "name": "macro:brief",
+      "started_at": "2026-09-27T00:34:45.971Z",
+      "duration_ms": 5596.158,
+      "status": "ok",
+      "error": null,
+      "attrs": {
+        "tier": "smart",
+        "model": "claude-sonnet-5",
+        "purpose": "macro:brief",
+        "estimated_usd": 0.009758,
+        "input_tokens": 1659,
+        "output_tokens": 472,
+        "cache_write_tokens": 0,
+        "cache_read_tokens": 0,
+        "usd": 0.008038,
+        "stop_reason": "end_turn"
+      }
+    },
+    {
+      "id": "s135",
+      "parent_id": "s132",
+      "kind": "llm_call",
+      "name": "macro:fomc_read",
+      "started_at": "2026-09-27T00:34:51.569Z",
+      "duration_ms": 5702.691,
+      "status": "ok",
+      "error": null,
+      "attrs": {
+        "tier": "smart",
+        "model": "claude-sonnet-5",
+        "purpose": "macro:fomc_read",
+        "estimated_usd": 0.009988,
+        "input_tokens": 1794,
+        "output_tokens": 563,
+        "cache_write_tokens": 0,
+        "cache_read_tokens": 0,
+        "usd": 0.009218,
+        "stop_reason": "end_turn"
+      }
+    },
+    {
+      "id": "s137",
+      "parent_id": "s132",
+      "kind": "llm_call",
+      "name": "macro:minutes",
+      "started_at": "2026-09-27T00:34:57.284Z",
+      "duration_ms": 4958.936,
+      "status": "ok",
+      "error": null,
+      "attrs": {
+        "tier": "smart",
+        "model": "claude-sonnet-5",
+        "purpose": "macro:minutes",
+        "estimated_usd": 0.032442,
+        "input_tokens": 12853,
+        "output_tokens": 342,
+        "cache_write_tokens": 0,
+        "cache_read_tokens": 0,
+        "usd": 0.029126,
+        "stop_reason": "end_turn"
+      }
+    },
+    {
+      "id": "s139",
+      "parent_id": "s132",
+      "kind": "custom",
+      "name": "macro:investigate",
+      "started_at": "2026-09-27T00:35:02.243Z",
+      "duration_ms": 5619.477,
+      "status": "ok",
+      "error": null,
+      "attrs": {
+        "trigger": "fomc_decision:2026-09-16",
+        "narrative_source": "llm",
+        "cited": 2
+      }
+    },
+    {
+      "id": "s140",
+      "parent_id": "s139",
+      "kind": "agent_loop",
+      "name": "macro:investigator",
+      "started_at": "2026-09-27T00:35:02.245Z",
+      "duration_ms": 5617.428,
+      "status": "ok",
+      "error": null,
+      "attrs": {
+        "tier": "smart",
+        "tools": [
+          "compare_to_prior_cycles",
+          "get_components",
+          "get_fomc_context",
+          "get_series",
+          "percentile_vs_history"
+        ],
+        "steps": 2,
+        "tool_calls": 3,
+        "pending_actions": 0,
+        "stop_reason": "finished",
+        "usd": 0.008654
+      }
+    },
+    {
+      "id": "s141",
+      "parent_id": "s140",
+      "kind": "llm_call",
+      "name": "macro:investigator:step1",
+      "started_at": "2026-09-27T00:35:02.245Z",
+      "duration_ms": 2073.948,
+      "status": "ok",
+      "error": null,
+      "attrs": {
+        "tier": "smart",
+        "model": "claude-sonnet-5",
+        "purpose": "macro:investigator:step1",
+        "estimated_usd": 0.013128,
+        "input_tokens": 2,
+        "output_tokens": 195,
+        "cache_write_tokens": 251,
+        "cache_read_tokens": 2083,
+        "usd": 0.002998,
+        "stop_reason": "tool_use"
+      }
+    },
+    {
+      "id": "s142",
+      "parent_id": "s140",
+      "kind": "tool_call",
+      "name": "get_fomc_context",
+      "started_at": "2026-09-27T00:35:04.320Z",
+      "duration_ms": 1.388,
+      "status": "ok",
+      "error": null,
+      "attrs": {
+        "tool": "get_fomc_context",
+        "step": 1,
+        "input": {},
+        "is_error": false,
+        "pending_approval": false,
+        "output": "{\"date\": \"2026-09-16\", \"decision\": \"hike\", \"target_range\": {\"lower\": 3.75, \"upper\": 4.0}, \"change_bp\": 25, \"votes_for\": 12, \"dissents\": 0, \"tone_shift\": \"more_hawkish\", \"policy_regime\": \"Hiking\", \"next_meeting\": {\"start\": \"2026-10-27\", \"end\": \"2026-10-28\"}}"
+      }
+    },
+    {
+      "id": "s143",
+      "parent_id": "s140",
+      "kind": "tool_call",
+      "name": "get_series",
+      "started_at": "2026-09-27T00:35:04.322Z",
+      "duration_ms": 0.598,
+      "status": "ok",
+      "error": null,
+      "attrs": {
+        "tool": "get_series",
+        "step": 1,
+        "input": {
+          "id": "cpi",
+          "range": "1y"
+        },
+        "is_error": false,
+        "pending_approval": false,
+        "output": "{\"id\": \"cpi\", \"name\": \"CPI (all items)\", \"measure\": \"YoY\", \"units\": \"percent\", \"range\": \"1y\", \"latest\": [\"2026-08-01\", 3.4], \"observations\": [[\"2025-11-01\", 2.7], [\"2025-12-01\", 2.7], [\"2026-01-01\", 2.4], [\"2026-02-01\", 2.4], [\"2026-03-01\", 3.3], [\"2026-04-01\", 3.8], [\"2026-05-01\", 4.2], [\"2026-06-01\", 3.5], [\"2026-07-01\", 3.3], [\"2026-08-01\", 3.4]]}"
+      }
+    },
+    {
+      "id": "s144",
+      "parent_id": "s140",
+      "kind": "tool_call",
+      "name": "get_series",
+      "started_at": "2026-09-27T00:35:04.323Z",
+      "duration_ms": 0.33,
+      "status": "ok",
+      "error": null,
+      "attrs": {
+        "tool": "get_series",
+        "step": 1,
+        "input": {
+          "id": "unrate",
+          "range": "1y"
+        },
+        "is_error": false,
+        "pending_approval": false,
+        "output": "{\"id\": \"unrate\", \"name\": \"Unemployment rate\", \"measure\": \"Level\", \"units\": \"percent\", \"range\": \"1y\", \"latest\": [\"2026-08-01\", 4.1], \"observations\": [[\"2025-11-01\", 4.5], [\"2025-12-01\", 4.4], [\"2026-01-01\", 4.3], [\"2026-02-01\", 4.4], [\"2026-03-01\", 4.3], [\"2026-04-01\", 4.3], [\"2026-05-01\", 4.3], [\"2026-06-01\", 4.2], [\"2026-07-01\", 4.1], [\"2026-08-01\", 4.1]]}"
+      }
+    },
+    {
+      "id": "s145",
+      "parent_id": "s140",
+      "kind": "llm_call",
+      "name": "macro:investigator:step2",
+      "started_at": "2026-09-27T00:35:04.323Z",
+      "duration_ms": 3538.982,
+      "status": "ok",
+      "error": null,
+      "attrs": {
+        "tier": "smart",
+        "model": "claude-sonnet-5",
+        "purpose": "macro:investigator:step2",
+        "estimated_usd": 0.014372,
+        "input_tokens": 2,
+        "output_tokens": 290,
+        "cache_write_tokens": 914,
+        "cache_read_tokens": 2334,
+        "usd": 0.005656,
+        "stop_reason": "tool_use"
+      }
+    },
+    {
+      "id": "s146",
+      "parent_id": "s140",
+      "kind": "guard",
+      "name": "macro:investigator:finish",
+      "started_at": "2026-09-27T00:35:07.863Z",
+      "duration_ms": 0.004,
+      "status": "ok",
+      "error": null,
+      "attrs": {
+        "attempts": 1,
+        "outcome": "pass",
+        "unsupported": []
+      }
+    },
+    {
+      "id": "s147",
+      "parent_id": "s1",
+      "kind": "phase",
+      "name": "publish",
+      "started_at": "2026-09-27T00:35:07.865Z",
+      "duration_ms": 14.034,
+      "status": "ok",
+      "error": null,
+      "attrs": {}
+    }
+  ]
+}

@@ -47,3 +47,37 @@ One line per judgment call made while working unattended overnight, newest last.
 - 2026-09-26: Kept the first (pre-fix) real run's lines in data/costs.jsonl — that money was spent — but reset state.json and public-data/ before the final real run + immediate re-run so they reflect the final code.
 - 2026-09-26: Ran `ruff format` only on files this session touched, to keep the diff reviewable.
 - 2026-09-26: Committed on the session branch and pushed it, then pushed the same commits to `main` as the task explicitly asked.
+
+## 2026-09-27 session (agents-core v0.3.0, release investigator, evals, tracing)
+
+- 2026-09-27: Upgraded with the exact `uv add ...@v0.3.0` line; the pyproject source is now `rev = "v0.3.0"`.
+- 2026-09-27: agents-hub reported no agent-side issue specific to fed-agent's formats (every value was already standard); typed ValueBlock/RevisionBlock `format`/`delta_format` as agents-core `StatFormat` so the schema enforces it, plus a test over every configured indicator.
+- 2026-09-27: Missing Anthropic key detected up front (`llm_available`, which touches `llm.client`) only when a run needs the LLM; then every generator gets `llm=None` → its template, `status: ok`, one warning. A no-event run with no key has no warning (it wouldn't call the model anyway).
+- 2026-09-27: Interpreted "don't flag delayed when FRED's calendar shows it's scheduled but not yet published" as: a date not yet due is never delayed, and a past date is delayed only if FRED's *published* release dates (`include_release_dates_with_no_data=false`) lack it — a release FRED shows as published (GDP on 2026-08-26) isn't delayed even if this series didn't move. Unknown status (lookup failed) never flags.
+- 2026-09-27: Published-dates lookups only for non-daily releases (the only ones §5.5 can flag): ~10 extra FRED requests per run.
+- 2026-09-27: §10's FRED-series failure is now `status: ok` + warning (+ `stale: true` on the indicator), as the spec says, replacing the v0.1.0 `status: stale` stand-in.
+- 2026-09-27: FOMC block, minutes, headline and investigation come from `ctx.previous_latest()`; state.json keeps §4 fields + regime/delayed transition state. Legacy fields are read (never written) as a one-time migration, and the committed state.json was deliberately left unconverted because this repo has no `data` branch yet.
+- 2026-09-27: If no previous FOMC block exists anywhere (lost data branch), the latest statement/minutes are treated as unseen and rebuilt (one FOMC read) rather than publishing an empty FOMC block until the next meeting.
+- 2026-09-27: The 30-day series→release cache moved from state.json to agents-core's HTTP cache (2xx-only since v0.2.0); `cache_path` is now `.cache` (observations, Fed ETag copies, HTTP cache) and no longer includes `public-data`.
+- 2026-09-27: Fed RSS feed and calendar page use `Http.download` (conditional GET) into `.cache/macro/fed/`; statements/minutes keep the permanent HTTP-cache TTL (they never change).
+- 2026-09-27: §10's "open a GitHub issue when statement extraction fails" is `ctx.alert(...)`; so the run job grants `issues: write` alongside `contents: write`.
+- 2026-09-27: No local HTTP-cap workaround existed to remove; kept the per-host min_interval policies and default retries (FRED/Fed have no daily budget).
+- 2026-09-27: Tried `temperature = 0` for the fast tier (eval judge); the installed SDK's `messages.parse` rejects it (TypeError, live), so both tiers leave it unset and it's recorded as an agents-core gap. That crashed judge run ($0.0376) is kept in eval_costs but its history line was removed as not a real baseline.
+- 2026-09-27: Release investigator trigger = highest-ranked new_release of cpi/core_pce/payrolls/unrate/gdp or an fomc_decision; revisions, delays and other releases never trigger it. Without a trigger the previous investigation is carried over with `reused_from_run_id`.
+- 2026-09-27: Investigator tools serve only data transform already computed (no network in tools), in the site's displayed precision; 5y/10y history is sampled quarterly to keep tool outputs small.
+- 2026-09-27: Investigator guard facts = trigger facts + every successful tool output, built at finish time (a lazy wrapper around `fields_guard`); cycle labels ("2022-23") and tenors are in the allow list.
+- 2026-09-27: Investigator `cited_series` kept only if a tool returned that series this run; if none survive, the template's citations are used. 120-word hard cap trimmed to whole sentences in code.
+- 2026-09-27: Any investigator failure other than the run-wide `BudgetExceeded` (loop budget stops, refusals, API errors) → template + warning, never a failed run: the investigation is additive.
+- 2026-09-27: Investigator budget as specified (8 steps, $0.08) with max_tokens 1000 per step so the worst-case pre-check doesn't stop the loop early; measured $0.009-0.015 per investigation.
+- 2026-09-27: Component series (5 CPI components, 7 payroll sectors) are `[[component]]` entries in macro.toml, fetched with the same last_updated change detection; component failures are warnings, not counted toward §10's 50% rule.
+- 2026-09-27: Investigator evals serve tools from real FRED history recorded to evals/macro/fixtures/investigator/series.json (scripts/record_eval_series.py), not synthetic data; trigger facts are recomputed from it so task, tools and judge agree (the scenario fixtures' hypothetical numbers stay for the brief evals).
+- 2026-09-27: "Forbidden tools" = names of tools that don't exist (web_search, fetch_url, ...): the loop has no write tools, so the meaningful failure is an invented tool. Quiet/delayed-release scenarios must start no loop; trajectory scorers pass there only if none ran.
+- 2026-09-27: max_steps scorer set at 6 (below the 8-step budget) as an efficiency target; the budget itself is enforced by the loop.
+- 2026-09-27: One total eval cap via evals/run_macro.py (each suite gets what's left), because `agents-evals run` caps suites separately; the PR workflow uses it with max_usd 0.60 and regression_threshold 0.10 (5-6 cases per suite, so a single flipped case is a regression by design).
+- 2026-09-27: Eval guard failures go to evals/results/guard_failures.jsonl (env set by run_macro.py, not at import — setting it at import leaked into other tests); eval LLM spend goes to agents-core's data/eval_costs.jsonl, outside costs-summary.json.
+- 2026-09-27: Old evals/results/macro-2026-09-26.json and evals/results/costs.jsonl kept as history; evals/history.jsonl starts with this session's runs rather than backfilling differently-shaped old results.
+- 2026-09-27: First investigator eval (judge 0.65) found speculation about Fed motives and an over-long analysis; added a "describe, don't speculate" rule and a 90-word target, bumped PROMPT_VERSION; also fixed the eval so the judge sees the real trigger facts. Judge 1.00 after.
+- 2026-09-27: The demo real run used a scratch data/publish dir with fresh state (so the investigator had a trigger) — the repo's data/costs.jsonl and state.json are untouched; its spend ($0.055) is reported in STATUS.md. Excerpts saved to docs/demo/.
+- 2026-09-27: schema_version bumped to 1.1.0 (additive: meta.warnings/meta_schema_version, `investigation`, typed formats).
+- 2026-09-27: Ran `ruff format` repo-wide this time (two previously unformatted files, style_check.py and test_config.py, were reformatted) so `ruff format --check .` is clean.
+- 2026-09-27: Committed on the session branch, then fast-forwarded `main` to it and pushed both, as the task asked.

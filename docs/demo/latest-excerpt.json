@@ -1,0 +1,266 @@
+{
+  "meta": {
+    "agent": "macro",
+    "schema_version": "1.1.0",
+    "run_id": "2026-09-27T00-34-04Z-35e0ad",
+    "started_at": "2026-09-27T00:34:04Z",
+    "finished_at": "2026-09-27T00:35:07Z",
+    "status": "ok",
+    "data_changed": true,
+    "cost_usd": 0.055036,
+    "model_usage": {
+      "fast": {
+        "input_tokens": 0,
+        "output_tokens": 0
+      },
+      "smart": {
+        "input_tokens": 21892,
+        "output_tokens": 1862
+      }
+    },
+    "sources": [
+      {
+        "name": "FRED, Federal Reserve Bank of St. Louis",
+        "url": "https://fred.stlouisfed.org/",
+        "retrieved_at": "2026-09-27T00:34:45Z"
+      },
+      {
+        "name": "Federal Reserve Board",
+        "url": "https://www.federalreserve.gov/monetarypolicy.htm",
+        "retrieved_at": "2026-09-27T00:34:45Z"
+      }
+    ],
+    "warnings": [],
+    "meta_schema_version": "1.1.0"
+  },
+  "headline": "The FOMC raised rates to 3.75–4.00%.",
+  "key_stats": [
+    {
+      "label": "CPI YoY",
+      "value": 3.4,
+      "format": "percent",
+      "delta": 0.1,
+      "delta_format": "pp_signed",
+      "good_direction": "down"
+    },
+    {
+      "label": "Core PCE YoY",
+      "value": 3.3,
+      "format": "percent",
+      "delta": 0.0,
+      "delta_format": "pp_signed",
+      "good_direction": "down"
+    },
+    {
+      "label": "Unemployment",
+      "value": 4.1,
+      "format": "percent",
+      "delta": 0.0,
+      "delta_format": "pp_signed",
+      "good_direction": "down"
+    },
+    {
+      "label": "10Y yield",
+      "value": 5.18,
+      "format": "percent",
+      "delta": 0.07,
+      "delta_format": "pp_signed",
+      "good_direction": "neutral"
+    }
+  ],
+  "regimes": {
+    "inflation": {
+      "label": "Steady",
+      "detail": "Core PCE 3.3% YoY; 3.0% 3-mo annualized"
+    },
+    "labor": {
+      "label": "Stable",
+      "detail": "Unemployment 4.1%; payrolls 3-mo avg +71K"
+    },
+    "growth": {
+      "label": "Slow",
+      "detail": "Real GDP +1.5% annualized (Q2 2026)"
+    },
+    "policy": {
+      "label": "Hiking",
+      "detail": "Target range 3.75–4.00%"
+    },
+    "curve": {
+      "label": "Flat",
+      "detail": "10Y–2Y +0.36 pp; last sign change Sep 2024"
+    }
+  },
+  "brief": {
+    "bullets": [
+      {
+        "text": "The FOMC raised the target range by 25 bp to 3.75%-4.0% with no dissents at its September 16 meeting.",
+        "event_ids": [
+          "fomc_decision:2026-09-16"
+        ],
+        "citations": [
+          {
+            "name": "Federal Reserve",
+            "url": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20260916a.htm"
+          }
+        ]
+      },
+      {
+        "text": "CPI rose 0.4% month-over-month, with the year-over-year rate at 3.4%, up from a prior 3.3%.",
+        "event_ids": [
+          "new_release:cpi:2026-08-01"
+        ],
+        "citations": [
+          {
+            "name": "FRED: cpi",
+            "url": "https://fred.stlouisfed.org/series/CPIAUCSL"
+          }
+        ]
+      },
+      {
+        "text": "Core PCE inflation held at 3.3% year-over-year, matching the prior reading, with a 3-month annualized rate of 3.0%.",
+        "event_ids": [
+          "new_release:core_pce:2026-07-01"
+        ],
+        "citations": [
+          {
+            "name": "FRED: core_pce",
+            "url": "https://fred.stlouisfed.org/series/PCEPILFE"
+          }
+        ]
+      },
+      {
+        "text": "The unemployment rate held at 4.1%, unchanged from the prior month.",
+        "event_ids": [
+          "new_release:unrate:2026-08-01"
+        ],
+        "citations": [
+          {
+            "name": "FRED: unrate",
+            "url": "https://fred.stlouisfed.org/series/UNRATE"
+          }
+        ]
+      },
+      {
+        "text": "Nonfarm payrolls rose by 162 thousand, up from a prior monthly gain of 21 thousand, with a 3-month average of 71 thousand.",
+        "event_ids": [
+          "new_release:payrolls:2026-08-01"
+        ],
+        "citations": [
+          {
+            "name": "FRED: payrolls",
+            "url": "https://fred.stlouisfed.org/series/PAYEMS"
+          }
+        ]
+      },
+      {
+        "text": "Real GDP growth was 1.5% in the latest reading, down from a prior 2.1%; the 30-year mortgage rate rose 0.08 pp to 7.03%.",
+        "event_ids": [
+          "new_release:gdp:2026-04-01",
+          "new_release:mortgage_30y:2026-09-24"
+        ],
+        "citations": [
+          {
+            "name": "FRED: gdp",
+            "url": "https://fred.stlouisfed.org/series/A191RL1Q225SBEA"
+          },
+          {
+            "name": "FRED: mortgage_30y",
+            "url": "https://fred.stlouisfed.org/series/MORTGAGE30US"
+          }
+        ]
+      }
+    ],
+    "narrative_source": "llm",
+    "model": "claude-sonnet-5",
+    "generated_at": "2026-09-27T00:34:45Z",
+    "reused_from_run_id": null
+  },
+  "investigation": {
+    "trigger": {
+      "event_id": "fomc_decision:2026-09-16",
+      "type": "fomc_decision",
+      "indicator_id": null
+    },
+    "analysis": "The FOMC raised its target range by 25bp to 3.75-4.00% on 2026-09-16, a unanimous (12-0) decision with a tone described as more hawkish than the prior meeting. This follows CPI inflation that has picked up from 2.4% in February 2026 to 4.2% in May 2026 before easing slightly to 3.3% in July and 3.4% in August, still well above the 2.4-2.7% readings seen in late 2025. Meanwhile the unemployment rate has declined from 4.5% in November 2025 to 4.1% in August 2026, indicating a tighter labor market alongside firmer inflation.",
+    "cited_series": [
+      {
+        "id": "cpi",
+        "name": "CPI (all items)",
+        "fred_series": "CPIAUCSL",
+        "url": "https://fred.stlouisfed.org/series/CPIAUCSL"
+      },
+      {
+        "id": "unrate",
+        "name": "Unemployment rate",
+        "fred_series": "UNRATE",
+        "url": "https://fred.stlouisfed.org/series/UNRATE"
+      }
+    ],
+    "narrative_source": "llm",
+    "model": "claude-sonnet-5",
+    "generated_at": "2026-09-27T00:34:45Z",
+    "reused_from_run_id": null,
+    "loop": {
+      "steps": 2,
+      "tool_calls": [
+        "get_fomc_context",
+        "get_series",
+        "get_series"
+      ],
+      "stop_reason": "finished",
+      "cost_usd": 0.008654,
+      "guard_attempts": 1
+    }
+  },
+  "fomc": {
+    "latest": {
+      "date": "2026-09-16",
+      "decision": "hike",
+      "target_range": {
+        "lower": 3.75,
+        "upper": 4.0
+      },
+      "change_bp": 25,
+      "votes": {
+        "for_count": 12,
+        "against": []
+      },
+      "read": {
+        "summary": "The Federal Reserve raised the target range for the federal funds rate by 1/4 percentage point to 3-3/4 to 4 percent. The statement described economic activity as expanding at a solid pace, with resilient domestic spending despite elevated uncertainty tied to geopolitical developments. Productivity growth was described as strong and capital investment as robust. Inflation was described as remaining elevated, and the Committee stated that today's policy action will support a timelier return to its 2 percent goal. The vote was 12 in favor with none against.",
+        "tone_shift": "more_hawkish",
+        "rationale": "The Committee raised rates by 25 basis points (idx 0) and explicitly stated that this action will support a timelier return to the 2 percent inflation goal (idx 9), signaling continued focus on tightening policy to address elevated inflation despite dropping specific reference to supply shocks (idx 7, idx 8).",
+        "cited_change_idx": [
+          0,
+          9
+        ],
+        "key_phrases": [
+          {
+            "phrase": "raise the target range for the federal funds rate by 1/4 percentage point to 3-3/4 to 4 percent",
+            "interpretation": "The Committee increased the policy rate range by 25 basis points."
+          },
+          {
+            "phrase": "Today's policy action will support a timelier return to the Committee's 2 percent goal.",
+            "interpretation": "The rate hike is framed as accelerating progress toward the inflation target."
+          },
+          {
+            "phrase": "Inflation remains elevated.",
+            "interpretation": "A simplified, more general statement about inflation compared to the prior more detailed language."
+          },
+          {
+            "phrase": "Economic activity is expanding at a solid pace.",
+            "interpretation": "The Committee's assessment of current economic growth conditions."
+          }
+        ],
+        "narrative_source": "llm"
+      }
+    },
+    "minutes": {
+      "meeting_date": "2026-07-29",
+      "released_at": "2026-08-19",
+      "url": "https://www.federalreserve.gov/monetarypolicy/fomcminutes20260729.htm",
+      "summary": "At its July 28–29, 2026 meeting, the FOMC voted 9-3 to hold the federal funds rate target range at 3-1/2 to 3-3/4 percent, with three members (Hammack, Kashkari, Logan) preferring a 25 basis point increase. Participants noted total PCE inflation was 4.1 percent in May, easing to an estimated 3.7 percent in June, with core PCE at 3.4 percent in May and an estimated 3.3 percent in June. The unemployment rate was 4.2 percent, and labor markets were seen as stable. Real GDP growth reportedly slowed in the second quarter, though underlying demand indicators were firmer. Discussion centered on elevated inflation linked to tariffs, the Middle East conflict, and AI-related investment, with participants broadly viewing inflation risks as skewed to the upside and growth risks skewed to the downside. Some participants also flagged financial stability concerns tied to AI infrastructure financing and elevated equity valuations.",
+      "narrative_source": "llm"
+    }
+  },
+  "_excerpt_of": "public-data/latest.json from a real fresh-state run on 2026-09-27 (indicators, yield_curve, calendar and events omitted)"
+}

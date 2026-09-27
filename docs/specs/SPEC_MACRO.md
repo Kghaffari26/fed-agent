@@ -343,6 +343,83 @@ Written to `site/public/data/macro/latest.json` and `history/YYYY-MM-DD.json`. T
 
 `core.publish` updates `manifest.json` with `id: "macro"`, `route: "/macro"`, `expected_interval_hours: 24`, `next_run_hint: "Weekdays ~7:00 PT"`, and `headline` and `key_stats` from the payload.
 
+### 6.1 Release investigation and schema 1.1.0 additions (added 2026-09-27)
+
+Everything in this section is **additive**: no field above changed name, type or meaning. `schema_version` is
+`1.1.0`. The exported JSON Schema (`schemas/macro.schema.json`, and `schema.json` on the data branch) is the
+source of truth.
+
+**`investigation`** (object or `null`): the release investigator's latest "what's driving this" analysis.
+It is produced by an agent loop (`agents_core.agent_loop`) that runs **at most once per run**, and only when
+the run has a new high-priority release — CPI, core PCE, payrolls, unemployment or GDP (`new_release` event)
+— or an FOMC decision (`fomc_decision` event). The highest-ranked such event is the trigger. On any other run
+the previous run's investigation is republished with `reused_from_run_id` set; before the first trigger it is
+`null`.
+
+```json
+"investigation": {
+  "trigger": { "event_id": "fomc_decision:2026-09-16", "type": "fomc_decision", "indicator_id": null },
+  "analysis": "The FOMC raised its target range by 25bp to 3.75-4.00% on 2026-09-16 … 4.1% in August 2026 …",
+  "cited_series": [
+    { "id": "cpi", "name": "CPI (all items)", "fred_series": "CPIAUCSL", "url": "https://fred.stlouisfed.org/series/CPIAUCSL" }
+  ],
+  "narrative_source": "llm",
+  "model": "claude-sonnet-5",
+  "generated_at": "2026-09-27T00:34:45Z",
+  "reused_from_run_id": null,
+  "loop": { "steps": 2, "tool_calls": ["get_fomc_context", "get_series", "get_series"],
+            "stop_reason": "finished", "cost_usd": 0.008654, "guard_attempts": 1 }
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `trigger` | The event that started the investigation. `indicator_id` is `null` for an FOMC decision. |
+| `analysis` | 2-4 sentences, at most 120 words (code trims to whole sentences). |
+| `cited_series` | Series the analysis uses, **attached by code**: only ids a tool actually returned this run are kept (unknown or unread ids are dropped). Each links to its FRED page. |
+| `narrative_source` | `"llm"` if the model's analysis passed the number guard; `"template"` for the deterministic fallback (guard failed twice, a budget stop, an API error, or no Anthropic key). |
+| `model` | The model for `"llm"`, else `null`. |
+| `reused_from_run_id` | Set when copied from an earlier run (no new trigger this run). |
+| `loop` | What the loop did: model `steps`, `tool_calls` in order, `stop_reason` (agents-core `LoopResult.stop_reason`: `finished`, `max_steps`, `max_usd`, `max_seconds`, `run_budget`, `end_turn_without_finish`, `refusal`, `max_tokens`, `guard_failed`), `cost_usd`, `guard_attempts`. `null` when no loop ran (no API key). |
+
+**The loop.** Tier `smart`, budget **8 model steps, $0.08, 120 s** (`LoopBudget`), 1,000 output tokens per
+step. Tools, all computed from data `transform` already has (no network or LLM inside a tool; outputs rounded
+by `display.py` to published precision):
+
+| Tool | Returns |
+|---|---|
+| `get_series(id, range)` | The series' primary measure (as the site shows it) over `1y`/`2y` (monthly) or `5y`/`10y` (quarterly). Ids: every indicator id plus the component ids. |
+| `get_components(release)` | `cpi`: shelter, energy, food, core goods, core services (YoY %, MoM %). `payrolls`: monthly change by major sector (construction, manufacturing, trade/transport/utilities, professional and business services, private education and health, leisure and hospitality, government; thousands). Configured as `[[component]]` in `config/macro.toml`. |
+| `percentile_vs_history(id, value, years)` | Percentile rank (0-100) of `value` in the series' own history over 1-10 years, with the min and max. |
+| `compare_to_prior_cycles(id)` | The current value next to the series' average/low/high in 2019 and in 2022-23. |
+| `get_fomc_context()` | Target range, latest decision, `change_bp`, votes and dissents, tone shift, policy regime, next meeting. |
+| `finish(analysis, cited_series)` | The loop's built-in result tool. |
+
+**Guards.** Tool outputs are wrapped as untrusted data (agents-core). The number guard checks `analysis`
+against the trigger's facts plus every tool output of the loop: a number the model didn't read from a tool is
+sent back once with the bad numbers named, then the deterministic template ships. A budget stop, a refusal, or
+an API error is a warning in `meta.warnings` and the template, never a failed run; only the run-wide cost cap
+(`BudgetExceeded`) fails a run, as in §10.
+
+**Cost.** One investigation is about $0.01-0.02 (measured: $0.0087 in the 2026-09-27 real run, $0.01-0.015 per
+eval case). It runs only on the few high-priority release days a month, so §12's budget stands.
+
+**Other 1.1.0 changes.**
+
+- `meta.warnings` (agents-core 1.1.0 meta) carries §10's "ok with a warning" cases: a failed FRED series
+  (also `stale: true` on its indicator, `status: "ok"`), a missing Anthropic key (template narrative
+  everywhere), an investigator budget stop, calendar or release-date lookups that failed.
+- Every `format` and `delta_format` (indicator `primary`/`change`/`secondary`, `revision.format`, `key_stats`)
+  is one of agents-core's standard `StatFormat` values; the schema now enforces it.
+- `indicators[].delayed` follows FRED's release status (§5.5): the most recent past scheduled date must be
+  missing from the dates FRED actually published data for the release (`release/dates` without
+  `include_release_dates_with_no_data`), more than 2 days old, with the series not updated since. A release
+  FRED shows as published is not delayed even when this series wasn't revised in it, and a date scheduled but
+  not yet due is never delayed.
+- The data branch also carries agents-core's `trace.json` (every span: phases, LLM calls with tokens and
+  cost, HTTP requests, the agent loop and each tool call, guard outcomes) and `trace.schema.json`;
+  `manifest-entry.json` carries `trace_summary`.
+
 ---
 
 ## 7. LLM usage

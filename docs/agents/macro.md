@@ -1,32 +1,53 @@
-# macro agent — eval summary
+# macro agent: eval summary
 
-Full results: `evals/results/macro-2026-09-26.json`. Run with `uv run python evals/run_macro.py`
-(real LLM calls through `agents_core.llm`, capped at $0.20; `--no-llm` for the template checks only).
-This run: 12 calls, **$0.0976**.
+The evals are `agents_core.evals` suites in `evals/macro/suites.py`. Run them with
+`uv run python evals/run_macro.py`: real LLM calls, one total cap of $0.60, and `--no-llm` for the
+deterministic suite only.
 
-| Eval (§11) | Fixture | Result | Pass criteria |
-|---|---|---|---|
-| Number fidelity | 5 scenario fixtures (CPI day, jobs day with big revisions, FOMC day, quiet day, delayed-release day) | **100%** of final bullets pass the guard (re-checked independently); **100%** first-attempt pass | 100% final, ≥ 90% first attempt — **pass** |
-| Event grounding | same, LLM bullets | **100%** (every `event_id` exists; top-priority event covered) | **pass** |
-| Style | same, LLM bullets | **100%** (no banned words/advice, ≤ 30 words) | **pass** |
-| FOMC tone | 6 real statement pairs (2022-2026) saved from federalreserve.gov | **83%** (5/6) match; near-identical pair → `unchanged` | ≥ 80% and identical pair unchanged — **pass**, against **PROVISIONAL** labels |
-| Phrase verbatim | same 6 pairs | **100%** raw and after code filtering | 100% — **pass** |
-| Template fallback (style + grounding) | 5 scenario fixtures | 100% / 100% | sanity check of the guard fallback |
+- Each run appends one line per suite to `evals/history.jsonl` and writes `evals/results/<date>.json`.
+- `uv run agents-evals compare` shows the score deltas against the previous entry.
+- On pull requests, `.github/workflows/evals.yml` runs `run-evals.yml@v0.3.0`. It fails the PR when a score
+  drops by more than 0.10.
+
+Latest run: 2026-09-27, `evals/results/2026-09-27.json`, $0.14 for all four suites.
+
+| Suite | Cases | Scorers → result |
+|---|---|---|
+| `macro-investigator` | 5 scenario fixtures (CPI day, jobs day with big revisions, FOMC day, quiet day, delayed-release day). Tools serve real FRED history recorded 2026-09-27. | trigger_correct 1.00 · required_tools_called 1.00 · forbidden_tools_not_called 1.00 · max_steps (≤ 6) 1.00 · stop_reason `finished` 1.00 · numbers_supported 1.00 · citations_valid 1.00 · **judge_quality 1.00** · pass rate **1.00** ($0.041) |
+| `macro-brief` | same 5 fixtures | number_fidelity 1.00 · first_attempt_guard_pass 1.00 · style 1.00 · grounding 1.00 ($0.022) |
+| `macro-fomc-read` | 6 real statement pairs (2022-2026) | tone_match **0.83** (5/6, PROVISIONAL labels) · phrases_verbatim 1.00 · cited_idx_valid 1.00 ($0.078) |
+| `macro-templates` | 5 fixtures, no LLM | style 1.00 · grounding 1.00 |
+
+## Investigator trajectory evals
+
+- **Required tools.** CPI and jobs days must call `get_components`. The FOMC day must call
+  `get_fomc_context`.
+- **Forbidden tools.** Names of tools that don't exist (`web_search`, `fetch_url`, `get_fred_series`, …).
+  Calling one means the model invented a tool.
+- **Quiet and delayed-release days.** These must not start a loop. Each trajectory scorer passes on them only
+  if no loop ran.
+- **Numbers.** The final `analysis` is re-checked with the number guard against the trigger's facts plus
+  every tool output.
+- **Judge.** The fast tier scores the analysis 1-5 against a rubric: explains the driver, compares with
+  history, stays neutral, makes no forecasts, doesn't speculate about Fed motives, and keeps to ≤ 120 words.
+  The score is normalized to 0-1.
+- **Trigger facts.** Each case's trigger facts are recomputed from the recorded data, so the loop and the
+  judge see the same numbers.
+
+The first run on 2026-09-27 scored `judge_quality` 0.65: the judge flagged speculation about the Fed's motives
+and an over-long CPI analysis. The prompt was fixed, and the score went to 1.00. See
+[case study 5](../case-studies.md#5-the-release-investigator-speculated-about-the-feds-motives).
+
+The three real trajectories are saved in `tests/fixtures/investigator/` and replayed offline by
+`tests/test_investigator.py` with agents-core's `ReplayClient`.
 
 ## FOMC tone labels are PROVISIONAL
 
-`evals/macro/labels_proposed.json` holds my labels, re-derived this session from the real statement text
-and the code-computed diffs (the previous session's were from memory, with no network access). Two changed
-as a result, and a human should confirm all six before the eval is treated as final:
+`evals/macro/labels_proposed.json` holds labels derived from the real statement text and the code-computed
+diffs. A human should confirm all six. The model's one miss is the arguable 2023-12-13 → 2024-01-31 pair:
 
-| Pair | Decision | Label | Model | Note |
-|---|---|---|---|---|
-| 2024-07-31 → 2024-09-18 | cut 50 bp | more_dovish | more_dovish | |
-| 2022-03-16 → 2022-05-04 | hike 50 bp | more_hawkish | more_hawkish | |
-| 2026-07-29 → 2026-09-16 | hike 25 bp | more_hawkish | more_hawkish | |
-| 2024-06-12 → 2024-07-31 | hold | more_dovish | more_dovish | was "unchanged" (memory); the real diff has 5 softening edits |
-| 2023-12-13 → 2024-01-31 | hold | more_dovish | **more_hawkish** | was "more_hawkish" (memory). **Low confidence**: the text drops the tightening bias (dovish) but adds "does not expect it will be appropriate to reduce the target range until…" (hawkish guardrail). The model's miss is defensible. |
-| 2026-06-17 → 2026-07-29 | hold | unchanged | unchanged | near-identical pair (one edit: "reaffirmed" → "is continuing") |
+- the label is `more_dovish`, and the model said `more_hawkish`;
+- the statement drops the tightening bias, but it adds "does not expect it will be appropriate to reduce the
+  target range until…".
 
-One guard retry happened during the evals: the FOMC read for the 2022 pair wrote "25 basis point" (it
-converted "1/4" itself); the guard rejected it, the retry passed. That's the guard doing its job.
+It made the same call on 2026-09-26 and 2026-09-27.
