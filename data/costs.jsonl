@@ -12,3 +12,4 @@
 {"ts": "2026-09-29T19:09:45Z", "kind": "run", "agent": "macro", "run_id": "2026-09-29T19-09-33Z-df2e16", "status": "failed", "calls": 0, "run_usd": 0.0}
 {"ts": "2026-09-30T18:51:37Z", "kind": "run", "agent": "macro", "run_id": "2026-09-30T18-51-25Z-03c14e", "status": "failed", "calls": 0, "run_usd": 0.0}
 {"ts": "2026-10-01T19:18:31Z", "kind": "run", "agent": "macro", "run_id": "2026-10-01T19-18-19Z-0a265b", "status": "failed", "calls": 0, "run_usd": 0.0}
+{"ts": "2026-10-02T19:01:51Z", "kind": "run", "agent": "macro", "run_id": "2026-10-02T19-01-39Z-89d2dc", "status": "failed", "calls": 0, "run_usd": 0.0}
