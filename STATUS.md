@@ -24,6 +24,10 @@ See `DECISIONS.md` (2026-09-27 section) for each judgment call.
 - No other v0.3.2 feature applies here (`no_multiples`, `DownloadResult.links`); eval history lines gain
   `dirty`.
 - 317 tests (315 before; 2 new in `test_eval_suites.py`), ruff, ruff format and actionlint pass.
+- **Live investigator eval, once** (the judge's input changed):
+  `agents-evals run evals.macro.suites:INVESTIGATOR --total-max-usd 0.30` at `4f5e75e`, not dirty.
+  **$0.0442**, pass rate 1.00, every score 1.00 incl. `judge_quality` 1.00; `agents-evals compare`: 0
+  regressions vs the 2026-09-27 entry. Results in `evals/results/2026-10-08.json`.
 - The judge-input gap below is fixed in v0.3.2.
 
 ## Scheduled runs failing: FRED rejects the repo's `FRED_API_KEY` (2026-10-08)
