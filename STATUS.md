@@ -10,6 +10,23 @@ pieces:
 
 See `DECISIONS.md` (2026-09-27 section) for each judgment call.
 
+## Scheduled runs failing: FRED rejects the repo's `FRED_API_KEY` (2026-10-08)
+
+- **Every real Macro run since 2026-09-28 has failed** at fetch: FRED answers HTTP 400 to all 25 series
+  (`agents-run` log: `25 of 25 FRED series failed`). The "successful" runs in the Actions list are the 19:30
+  UTC FOMC cron, whose gate skips the job on non-decision days; the failing ones are the 14:00 UTC cron
+  (GitHub starts it hours late).
+- **Cause: the `FRED_API_KEY` repository secret.** FRED returns 400 only for its "api_key is not registered"
+  / "not set" errors on these requests. A known-good key fetched the same series fine from a dev session on
+  2026-10-08, and a dry run with it completed (25 indicators, 128 requests). The masked request URL shows no
+  stray whitespace, so the stored value is simply not a registered key (wrong, revoked, or a placeholder).
+- **Fix (by hand):** replace the secret with a valid key (see "Things to do by hand" 1), then run the Macro
+  agent workflow once with workflow_dispatch to confirm.
+- **Code change:** after 3 series in a row get HTTP 400 and none succeeds, `fetch` stops (not 25 doomed
+  calls) and fails with a message naming the secret, and opens one `ops-alert` issue
+  ("macro: FRED rejected FRED_API_KEY"; the run job already grants `issues: write`). A single bad series
+  after a success is still just a warning. Two new end-to-end tests; 314 tests and ruff pass.
+
 ## agents-core v0.3.1 (2026-09-27, later)
 
 - Pin, lockfile and both workflow `uses:` refs are on **v0.3.1**.
@@ -116,7 +133,7 @@ the demo files in `docs/demo/` from a real run.
 
 ## Test count
 
-**312 tests passing.** `uv run ruff check .` and `uv run ruff format --check .` are clean, and the suite makes
+**314 tests passing** (2026-10-08). `uv run ruff check .` and `uv run ruff format --check .` are clean, and the suite makes
 no network calls. New tests:
 
 - `test_investigator.py`: tools on real recorded data, the trigger, the template, and three real
@@ -155,7 +172,7 @@ yet. That run migrates the state automatically.
 ## Things to do by hand
 
 1. **Repository secrets** (Settings → Secrets and variables → Actions). Both workflows use `secrets: inherit`.
-   - `FRED_API_KEY` is required.
+   - `FRED_API_KEY` is required. **The current value is rejected by FRED (2026-10-08): replace it.**
    - `ANTHROPIC_API_KEY` is strongly recommended. Without it the agent still runs and publishes template text
      with a warning, and the PR evals can't run their LLM suites.
    - `SITE_DISPATCH_TOKEN` is optional.

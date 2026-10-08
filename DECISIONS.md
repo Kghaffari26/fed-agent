@@ -90,3 +90,7 @@ One line per judgment call made while working unattended overnight, newest last.
 - 2026-09-27: evals.yml keeps `max_usd: "0.60"` per suite and adds `total_max_usd: "0.60"`, so the total bound is unchanged from the wrapper's behavior.
 - 2026-09-27: Temperature smoke check was one direct `LLM.structured` call on the fast tier from a scratch script (costs logged to scratch, not data/), not an eval run, so evals/history.jsonl gets no partial entry.
 - 2026-09-27: Pushed to `main` as the task asked (and the session branch to the same commit).
+- 2026-10-08: FRED 400s on every series are treated as a bad `FRED_API_KEY` (FRED's 400 bodies on these endpoints are its api_key errors; a valid key worked live), so the fix is the secret, done by hand; the code only makes the failure loud and cheap.
+- 2026-10-08: Key rejection = the first 3 series all get HTTP 400 with no success yet (`KEY_REJECTED_AFTER`); the run fails with a message naming the secret and `ctx.alert` opens one issue. agents-core's `HttpError` carries no body, so the status plus "nothing succeeded" is the signal; one bad series ID after a success stays a warning.
+- 2026-10-08: Kept the existing >50%-failed rule unchanged for every other failure mode (5xx, timeouts).
+- 2026-10-08: Pushed to `main`, like the previous sessions' fixes; secrets were not touched (repo secrets are the owner's to set).

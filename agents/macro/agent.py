@@ -21,7 +21,7 @@ import os
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 
 from agents_core import settings, tracing
 from agents_core.agent import Agent, AgentResult, RunContext
@@ -139,6 +139,11 @@ DEFAULT_OBS_CACHE_DIR = Path(".cache/macro/observations")
 LATER_RUN_LOOKBACK_DAYS = 400  # §3: later runs fetch only the last 400 days
 RELEASE_DATES_LOOKBACK_DAYS = 45  # enough to see the most recent past release (§5.5)
 MAX_FAILED_SERIES_SHARE = 0.5  # §10: more than half failing fails the run
+# FRED answers 400 ("api_key is not registered"/"not set") to every request when the
+# key is bad. After this many series in a row fail that way, with none succeeding,
+# stop: the key is the problem, so the rest would fail the same way.
+KEY_REJECTED_AFTER = 3
+FRED_KEY_ALERT = "macro: FRED rejected FRED_API_KEY"
 FRED_SOURCE_URL = "https://fred.stlouisfed.org/"
 FED_SOURCE_URL = "https://www.federalreserve.gov/monetarypolicy.htm"
 
@@ -292,13 +297,19 @@ class MacroAgent(Agent):
 
         series: dict[str, SeriesFetch] = {}
         failed: list[str] = []
+        rejected = 0  # consecutive HTTP 400s before any series succeeded
         for ind in config.indicators:
             sid = ind.fred_series
             if sid in series:
                 continue
             try:
                 series[sid] = self._fetch_series(ctx.http, sid, api_key, state, config, today)
+                rejected = -1  # a success: the key works
             except HttpError as e:
+                if rejected >= 0 and e.status == 400:
+                    rejected += 1
+                    if rejected >= KEY_REJECTED_AFTER:
+                        self._fred_key_rejected(ctx, failed + [sid])
                 cached = load_cached_observations(sid)
                 failed.append(sid)
                 log.warning(
@@ -349,6 +360,18 @@ class MacroAgent(Agent):
             previous=ctx.previous_latest(),
             warnings=warnings,
         )
+
+    @staticmethod
+    def _fred_key_rejected(ctx: RunContext, series: list[str]) -> NoReturn:
+        message = (
+            f"FRED answered HTTP 400 to the first {len(series)} series ({', '.join(series)}) and "
+            "accepted none: FRED_API_KEY is invalid, unregistered or empty. Update the "
+            "FRED_API_KEY repository secret (Settings -> Secrets and variables -> Actions) "
+            "with a key from https://fred.stlouisfed.org/docs/api/api_key.html."
+        )
+        log.error(message)
+        ctx.alert(FRED_KEY_ALERT, message)
+        raise RuntimeError(message)
 
     def _fetch_series(
         self, http: Http, sid: str, api_key: str, state: MacroState, config: MacroConfig, today: date

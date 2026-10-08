@@ -78,6 +78,7 @@ class FakeFred:
     overrides: dict[str, dict[date, float]] = field(default_factory=dict)
     series: dict[str, list[tuple[date, float]]] = field(default_factory=dict)
     requests: list[str] = field(default_factory=list)
+    reject_key: bool = False  # answer every request like FRED does for a bad api_key
 
     def __post_init__(self) -> None:
         config = load_macro_config()
@@ -111,6 +112,9 @@ class FakeFred:
     def handle(self, request: httpx.Request) -> httpx.Response:
         url = request.url
         self.requests.append(str(url.copy_remove_param("api_key")))
+        if self.reject_key:
+            message = "Bad Request.  The value for variable api_key is not registered."
+            return httpx.Response(400, json={"error_code": 400, "error_message": message})
         params = url.params
         path = url.path.removeprefix("/fred")
         if path == "/series":

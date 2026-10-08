@@ -242,6 +242,40 @@ def test_cost_cap_fails_run_and_keeps_previous_latest(env, fred, monkeypatch):
     assert manifest["status"] == "failed"
 
 
+def test_rejected_fred_key_fails_fast_with_an_alert(env, fred, monkeypatch, caplog):
+    alerts = []
+    monkeypatch.setattr(
+        "agents_core.agent.RunContext.alert", lambda self, title, body, **kw: alerts.append((title, body))
+    )
+    fred.reject_key = True
+    assert _run(env, fred, FakeAnthropic()) == 1
+    # stops after KEY_REJECTED_AFTER series instead of trying all 25
+    assert len(fred.requests) == 3
+    [(title, body)] = alerts
+    assert title == "macro: FRED rejected FRED_API_KEY"
+    assert "FRED_API_KEY is invalid" in body and "CPIAUCSL" in body
+    assert "FRED_API_KEY is invalid" in caplog.text
+
+
+def test_a_single_bad_series_is_not_a_key_problem(env, fred, monkeypatch):
+    alerts = []
+    monkeypatch.setattr(
+        "agents_core.agent.RunContext.alert", lambda self, title, body, **kw: alerts.append(title)
+    )
+    handle = fred.handle
+
+    def first_three_400(request):
+        sid = request.url.params.get("series_id")
+        if sid in ("CPILFESL", "PCEPI", "PCEPILFE"):
+            return httpx.Response(400, json={"error_code": 400})
+        return handle(request)
+
+    monkeypatch.setattr(fred, "handle", first_three_400)
+    assert _run(env, fred, FakeAnthropic()) == 0  # CPIAUCSL succeeded first: key is fine
+    assert "macro: FRED rejected FRED_API_KEY" not in alerts
+    assert any("CPILFESL" in w for w in _latest(env)["meta"]["warnings"])
+
+
 def test_rerun_republishes_from_previous_latest_not_state(env, fred):
     """Since agents-core v0.2.0 the data branch is restored into public-data/, so the
     FOMC block, minutes and headline come from the previous latest.json; state.json
