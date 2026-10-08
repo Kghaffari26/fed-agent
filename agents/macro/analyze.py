@@ -227,14 +227,39 @@ def text_numbers(*texts: str | None) -> list[float]:
     return out
 
 
-def llm_available(llm: LLM) -> bool:
-    """False when no Anthropic key is configured (agents-core raises a plain
-    RuntimeError, not an LLMError, the first time the client is needed)."""
+NO_KEY_WARNING = "No Anthropic API key configured: published template narrative only"
+REJECTED_KEY_WARNING = (
+    "Anthropic API key rejected (HTTP {status}): published template narrative only;"
+    " update the ANTHROPIC_API_KEY secret"
+)
+
+
+def llm_key_problem(llm: LLM) -> str | None:
+    """Why the LLM can't be used this run (the warning to publish), or None if it can.
+
+    No key: agents-core raises a plain RuntimeError, not an LLMError, the first time the
+    client is needed. A key the API rejects (revoked, or a mistyped secret) would fail
+    each call with a 401/403, which isn't an LLMError either and would fail the run; it's
+    checked once up front with a free `models.list` request (real SDK clients only, not
+    injected fakes). Network trouble or a 5xx is left to the real calls."""
     try:
-        llm.client  # noqa: B018 - builds the client, which reads the key
+        client = llm.client  # noqa: B018 - builds the client, which reads the key
     except RuntimeError:
-        return False
-    return True
+        return NO_KEY_WARNING
+    if type(client).__module__.split(".")[0] != "anthropic":
+        return None
+    try:
+        client.models.list(limit=1)
+    except Exception as e:  # the SDK's error types, without importing the SDK here
+        status = getattr(e, "status_code", None)
+        if status in (401, 403):
+            return REJECTED_KEY_WARNING.format(status=status)
+        log.warning("Anthropic key preflight failed (%s); trying the real calls anyway", e)
+    return None
+
+
+def llm_available(llm: LLM) -> bool:
+    return llm_key_problem(llm) is None
 
 
 def _guarded_structured(

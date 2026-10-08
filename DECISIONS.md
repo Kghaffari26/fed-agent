@@ -94,3 +94,4 @@ One line per judgment call made while working unattended overnight, newest last.
 - 2026-10-08: Key rejection = the first 3 series all get HTTP 400 with no success yet (`KEY_REJECTED_AFTER`); the run fails with a message naming the secret and `ctx.alert` opens one issue. agents-core's `HttpError` carries no body, so the status plus "nothing succeeded" is the signal; one bad series ID after a success stays a warning.
 - 2026-10-08: Kept the existing >50%-failed rule unchanged for every other failure mode (5xx, timeouts).
 - 2026-10-08: Pushed to `main`, like the previous sessions' fixes; secrets were not touched (repo secrets are the owner's to set).
+- 2026-10-08: A rejected Anthropic key (401/403) is caught by one free `models.list` preflight (`llm_key_problem`, real SDK clients only) and degrades to templates with a warning, like a missing key; 401/403 are not `LLMError`s, so a bad key used to fail the run.

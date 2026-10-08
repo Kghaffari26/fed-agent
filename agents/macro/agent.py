@@ -35,7 +35,7 @@ from agents.macro.analyze import (
     generate_brief,
     generate_fomc_read,
     generate_minutes_summary,
-    llm_available,
+    llm_key_problem,
 )
 from agents.macro.build import (
     CURVE_SERIES,
@@ -782,9 +782,10 @@ class MacroAgent(Agent):
         # still publishes (status ok, with a warning) instead of failing.
         llm: LLM | None = ctx.llm
         needs_llm = bool(data.events) or data.fomc_is_new or data.minutes_is_new
-        if needs_llm and not llm_available(ctx.llm):
+        llm_problem = llm_key_problem(ctx.llm) if needs_llm else None
+        if llm_problem:
             llm = None
-            warnings.append("No Anthropic API key configured: published template narrative only")
+            warnings.append(llm_problem)
 
         # What-changed brief (§7.2): only when something happened.
         if data.events:

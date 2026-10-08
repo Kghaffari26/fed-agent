@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, date, datetime, timedelta
+from types import SimpleNamespace
 
 import httpx
 import pytest
@@ -368,3 +369,32 @@ def test_lost_previous_output_rediscovers_the_latest_statement(env, fred):
     output = MacroOutput.model_validate(_latest(env))
     assert output.fomc.latest.date == date(2026, 9, 16) and output.fomc.latest.read is not None
     assert output.fomc.minutes.summary
+
+
+class _RejectedKeyAnthropic(FakeAnthropic):
+    """A real-looking SDK client (by module name) whose key the API rejects."""
+
+    __module__ = "anthropic._client"
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.model_lists = 0
+
+        def list_models(**_kw):
+            self.model_lists += 1
+            error = type("AuthenticationError", (Exception,), {"status_code": 401})
+            raise error("invalid x-api-key")
+
+        self.models = SimpleNamespace(list=list_models)
+
+
+def test_rejected_anthropic_key_publishes_templates_with_a_warning(env, fred):
+    """A 401 isn't an LLMError, so a bad key used to fail the run; now one free
+    models.list preflight catches it and the run degrades like a missing key."""
+    client = _RejectedKeyAnthropic()
+    assert _run(env, fred, client) == 0
+    assert client.model_lists == 1 and client.calls == []
+    output = MacroOutput.model_validate(_latest(env))
+    assert output.meta.status == "ok"
+    assert any("Anthropic API key rejected (HTTP 401)" in w for w in output.meta.warnings)
+    assert output.brief.narrative_source == "template"
