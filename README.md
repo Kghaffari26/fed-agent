@@ -158,14 +158,15 @@ has its own $0.08 cap inside that.
 ## Running it
 
 `agents-core` (the shared framework: HTTP, LLM, number guard, costs, publishing, runner) is a dependency
-pinned to `v0.3.1`. This repo registers the agent through the `agents_core.agents` entry point, so:
+at v0.3.2, pinned by commit SHA `9e4f342` until the `v0.3.2` tag exists (then the pyproject.toml and
+workflow pins switch to the tag). This repo registers the agent through the `agents_core.agents` entry point, so:
 
 ```bash
 cp .env.example .env   # FRED_API_KEY (free) and ANTHROPIC_API_KEY (or AGENTS_ANTHROPIC_API_KEY)
 uv sync
 uv run agents-run macro --dry-run   # fetch + compute; prints indicators, regimes, events. No LLM, no publish.
 uv run agents-run macro             # full run: publishes to public-data/, updates data/
-uv run pytest                        # 312 tests, no network
+uv run pytest                        # 317 tests, no network
 uv run python scripts/verify_macro_series.py   # confirms every configured FRED series resolves (live)
 uv run agents-evals run evals.macro.suites:{TEMPLATES,BRIEF,FOMC_READ,INVESTIGATOR} --total-max-usd 0.60
                                      # all eval suites; real LLM calls, one $0.60 total cap
@@ -175,10 +176,10 @@ uv run agents-evals compare          # score deltas vs the previous history entr
 A run writes the agents-core data-branch contract to `public-data/` (`latest.json`, `history/`,
 `manifest-entry.json`, `costs-summary.json`, `schema.json`, `trace.json`, `trace.schema.json`) and its own
 state to `data/` (`macro/state.json`, `costs.jsonl`, `guard_failures.jsonl`). In CI,
-`.github/workflows/agent-macro.yml` calls agents-core's reusable `run-agent.yml@v0.3.1` (granting
+`.github/workflows/agent-macro.yml` calls agents-core's reusable `run-agent.yml` (v0.3.2, by SHA; granting
 `contents: write` and `issues: write`). That workflow restores the `data` branch into `public-data/`, runs the
 agent, commits `data/` back, and force-pushes `public-data/` to the `data` branch.
-`.github/workflows/evals.yml` calls `run-evals.yml@v0.3.1` on pull requests.
+`.github/workflows/evals.yml` calls `run-evals.yml` (v0.3.2, by SHA) on pull requests.
 
 ## Repo layout
 

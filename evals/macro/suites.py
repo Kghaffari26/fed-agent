@@ -371,17 +371,31 @@ def scenario_fomc_context(raw: dict) -> dict[str, Any]:
     return ctx
 
 
+def investigator_setup(case_id: str) -> tuple[InvestigatorData, Trigger | None]:
+    """What the loop gets for a scenario: the recorded FRED data up to its date (with the
+    scenario's FOMC context) and its trigger, with a new release's facts recomputed from
+    that data. Shared by the task and the replay tests."""
+    raw = json.loads((FIXTURES / f"{case_id}.json").read_text())
+    data = investigator_data(date.fromisoformat(raw["as_of"]))
+    data.fomc = scenario_fomc_context(raw)
+    return data, scenario_trigger(raw, data)
+
+
+def judge_input(data: InvestigatorData, trigger: Trigger) -> dict[str, Any]:
+    """What the loop actually saw, for the LLM judge (agents-core `EvalOutput.input`): the
+    task message it started from (trigger + recomputed facts) and the FOMC context its
+    get_fomc_context tool serves. Not the scenario fixture's hypothetical numbers."""
+    return {**json.loads(investigator.task_message(trigger, data.today)), "fomc_context": data.fomc}
+
+
 def investigator_cases() -> list[EvalCase]:
-    """One case per scenario fixture. The case input is what the loop actually sees
-    (the trigger, its facts recomputed from the recorded FRED data, the FOMC context),
-    so the LLM judge grades the analysis against the same numbers the agent had,
-    not the scenario's hypothetical ones."""
+    """One case per scenario fixture. The case input is the scenario as written; the
+    task builds what the loop sees from it (`investigator_setup`) and reports that as
+    `EvalOutput.input`, so the judge grades against the loop's numbers (case study 5)."""
     cases = []
     for path in sorted(FIXTURES.glob("*.json")):
         raw = json.loads(path.read_text())
-        data = investigator_data(date.fromisoformat(raw["as_of"]))
-        trigger = scenario_trigger(raw, data)
-        fomc = scenario_fomc_context(raw)
+        trigger = pick_trigger(_ranked(raw))  # recomputing facts never changes which one
         cases.append(
             EvalCase(
                 id=path.stem,
@@ -389,15 +403,6 @@ def investigator_cases() -> list[EvalCase]:
                     "scenario": raw["scenario"],
                     "as_of": raw["as_of"],
                     "events": [e.id for e in _ranked(raw)],
-                    "trigger": None
-                    if trigger is None
-                    else {
-                        "event_id": trigger.event_id,
-                        "type": trigger.type,
-                        "series_id": trigger.indicator_id,
-                        "facts": trigger.facts,
-                    },
-                    "fomc_context": fomc,
                 },
                 expected={
                     "runs": trigger is not None,
@@ -411,13 +416,9 @@ def investigator_cases() -> list[EvalCase]:
 
 
 def run_investigator(case: EvalCase, ectx: EvalContext) -> EvalOutput:
-    spec = case.input
-    if spec["trigger"] is None:
+    data, trigger = investigator_setup(case.id)
+    if trigger is None:
         return EvalOutput({"ran": False, "trigger": None})
-    data = investigator_data(date.fromisoformat(spec["as_of"]))
-    data.fomc = spec["fomc_context"]
-    t = spec["trigger"]
-    trigger = Trigger(event_id=t["event_id"], type=t["type"], indicator_id=t["series_id"], facts=t["facts"])
     result = investigate(ectx.llm, data, trigger)
     if result.loop is not None and os.environ.get("MACRO_SAVE_TRAJECTORIES"):
         # Recorded real trajectories replay offline in tests (agents_core ReplayClient).
@@ -435,7 +436,7 @@ def run_investigator(case: EvalCase, ectx: EvalContext) -> EvalOutput:
         "numbers_ok": verify_numbers(result.draft.analysis, result.facts, allow=investigator.GUARD_ALLOW).ok,
         "series_seen": sorted(result.series_seen),
     }
-    return EvalOutput(output, loop=result.loop)
+    return EvalOutput(output, loop=result.loop, input=judge_input(data, trigger))
 
 
 class WhenTriggered(Scorer):

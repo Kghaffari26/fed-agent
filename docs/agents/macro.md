@@ -7,7 +7,7 @@ v0.3.1). `TEMPLATES` alone is the deterministic, no-LLM suite.
 
 - Each run appends one line per suite to `evals/history.jsonl` and writes `evals/results/<date>.json`.
 - `uv run agents-evals compare` shows the score deltas against the previous entry.
-- On pull requests, `.github/workflows/evals.yml` runs `run-evals.yml@v0.3.1`. It fails the PR when a score
+- On pull requests, `.github/workflows/evals.yml` runs agents-core's `run-evals.yml` (v0.3.2, pinned by SHA). It fails the PR when a score
   drops by more than 0.10.
 
 Latest run: 2026-09-27, `evals/results/2026-09-27.json`, $0.14 for all four suites.
@@ -32,8 +32,9 @@ Latest run: 2026-09-27, `evals/results/2026-09-27.json`, $0.14 for all four suit
 - **Judge.** The fast tier scores the analysis 1-5 against a rubric: explains the driver, compares with
   history, stays neutral, makes no forecasts, doesn't speculate about Fed motives, and keeps to ≤ 120 words.
   The score is normalized to 0-1.
-- **Trigger facts.** Each case's trigger facts are recomputed from the recorded data, so the loop and the
-  judge see the same numbers.
+- **Trigger facts.** Each case's trigger facts are recomputed from the recorded data. The task reports the
+  loop's own task message plus the FOMC context as `EvalOutput(..., input=...)` (agents-core v0.3.2), and the
+  judge shows that instead of the case input, so the loop and the judge see the same numbers.
 
 The first run on 2026-09-27 scored `judge_quality` 0.65: the judge flagged speculation about the Fed's motives
 and an over-long CPI analysis. The prompt was fixed, and the score went to 1.00. See

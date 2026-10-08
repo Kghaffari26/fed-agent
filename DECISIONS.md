@@ -95,3 +95,11 @@ One line per judgment call made while working unattended overnight, newest last.
 - 2026-10-08: Kept the existing >50%-failed rule unchanged for every other failure mode (5xx, timeouts).
 - 2026-10-08: Pushed to `main`, like the previous sessions' fixes; secrets were not touched (repo secrets are the owner's to set).
 - 2026-10-08: A rejected Anthropic key (401/403) is caught by one free `models.list` preflight (`llm_key_problem`, real SDK clients only) and degrades to templates with a warning, like a missing key; 401/403 are not `LLMError`s, so a bad key used to fail the run.
+
+## 2026-10-08 session (agents-core v0.3.2)
+
+- 2026-10-08: Pinned agents-core v0.3.2 by full commit SHA (pyproject `rev` + both workflow `uses:`), with a comment at each pin to switch to the `v0.3.2` tag once it exists; the tag isn't created yet.
+- 2026-10-08: Adopted `EvalOutput(..., input=...)` rather than `LLMJudge(input=...)`: the task already builds what the loop sees, so it reports it; no selector is needed since the reported input is already exactly the judge's view.
+- 2026-10-08: The judge's input is `task_message(trigger, as_of)` parsed (incl. its `instruction`) plus `fomc_context`, the latter because the rubric grades against the FOMC context the loop reads through `get_fomc_context`; the scenario name and fixture event ids are no longer shown to the judge.
+- 2026-10-08: `investigator_cases()` now derives `expected` from `pick_trigger` on the fixture alone (recomputing facts never changes which trigger is picked), so building the suite no longer loads the recorded FRED series per case; a test checks `investigator_setup` agrees with every case's `expected`.
+- 2026-10-08: Left docs/case-studies.md case study 5 as written (it's history); docs/agents/macro.md describes the new mechanism.

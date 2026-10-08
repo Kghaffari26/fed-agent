@@ -120,12 +120,7 @@ def test_overlong_analysis_is_trimmed_to_whole_sentences():
 def test_real_trajectories_replay_deterministically(case_id, tools):
     """A recorded real run, replayed offline: same tool calls, same result, and the
     finished analysis passes the number guard against the tool outputs."""
-    case = next(c for c in suites.investigator_cases() if c.id == case_id)
-    spec = case.input
-    data = suites.investigator_data(date.fromisoformat(spec["as_of"]))
-    data.fomc = spec["fomc_context"]
-    t = spec["trigger"]
-    trigger = inv.Trigger(t["event_id"], t["type"], t["series_id"], t["facts"])
+    data, trigger = suites.investigator_setup(case_id)
 
     client = ReplayClient(TRAJECTORIES / f"{case_id}.trajectory.json")
     llm = LLM(CostTracker(agent="macro", run_id="replay"), client=client)

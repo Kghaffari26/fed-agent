@@ -79,6 +79,44 @@ def test_investigator_suite_scores_trajectories(tmp_path):
     assert "required_tools_called" in history[-1]["scores"]
 
 
+def _judge_inputs(client: FakeAnthropic) -> list[dict]:
+    prompts = [c["messages"][0]["content"] for c in client.calls if c["output_format"] == "JudgeVerdict"]
+    return [json.loads(p.split("<input>\n", 1)[1].split("\n</input>", 1)[0]) for p in prompts]
+
+
+def test_investigator_judge_sees_what_the_loop_saw(tmp_path):
+    """The judge's <input> is the loop's own task message plus the FOMC context its tool
+    serves (EvalOutput.input), not the scenario fixture's hypothetical numbers."""
+    client = FakeAnthropic(investigator=focused_investigator)
+    run_suite(suites.INVESTIGATOR, llm_client=client, max_usd=1.0, evals_dir=tmp_path)
+
+    first_messages = [
+        json.loads(message_text(c["messages"][0]))
+        for c in client.calls
+        if c["output_format"] == "investigator" and len(c["messages"]) == 1
+    ]
+    shown = _judge_inputs(client)
+    assert len(shown) == len(first_messages) == 3
+    for seen, task in zip(shown, first_messages, strict=True):
+        assert {k: v for k, v in seen.items() if k != "fomc_context"} == task
+        assert seen["fomc_context"]["target_range"]
+
+    # Jobs day: the fixture says payrolls +22K; the recorded FRED data the loop used doesn't.
+    jobs = next(s for s in shown if s["trigger"]["series_id"] == "payrolls")
+    data, trigger = suites.investigator_setup("jobs_day_big_revision")
+    assert jobs["trigger"]["facts"] == json.loads(json.dumps(trigger.facts))
+    assert jobs["trigger"]["facts"].get("mom_diff") != 22
+
+
+def test_investigator_setup_matches_case_expectations():
+    for case in suites.investigator_cases():
+        data, trigger = suites.investigator_setup(case.id)
+        assert (trigger is not None) == case.expected["runs"], case.id
+        if trigger is not None:
+            assert trigger.type == case.expected["trigger_type"]
+            assert data.fomc and data.today.isoformat() == case.input["as_of"]
+
+
 def test_investigator_wrong_tools_fail_required_tools(tmp_path):
     # good_investigator never calls get_components: CPI and jobs days miss their required tool.
     report = run_suite(suites.INVESTIGATOR, llm_client=FakeAnthropic(), max_usd=1.0, evals_dir=tmp_path)

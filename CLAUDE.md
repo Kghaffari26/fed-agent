@@ -7,7 +7,8 @@ is `Kghaffari26/agents-hub`). The full build spec is [`docs/specs/SPEC_MACRO.md`
 ## Rules
 
 - **Never write your own http/llm/costs/guards/publish/runner/loop/tracing/evals module.** All of that comes
-  from `agents-core` (pinned `v0.3.1` in pyproject.toml): `agents_core.http.Http` (fetch_fred/fetch_fed take
+  from `agents-core` (pinned to v0.3.2 in pyproject.toml, by commit SHA `9e4f342` until the `v0.3.2`
+  tag exists; then switch pyproject.toml and both workflow `uses:` refs to the tag): `agents_core.http.Http` (fetch_fred/fetch_fed take
   it; `Http.download` for conditional GETs), `agents_core.llm.LLM` + `agents_core.guards.fields_guard`
   (analyze.py), `agents_core.agent_loop` (investigate.py), `agents_core.tracing` (trace.json is automatic),
   `agents_core.evals` (evals/macro/suites.py), `agents_core.costs`, `agents_core.publish`, and the runner. Don't modify agents-core from here; if it's missing something,

@@ -10,6 +10,22 @@ pieces:
 
 See `DECISIONS.md` (2026-09-27 section) for each judgment call.
 
+## agents-core v0.3.2 (2026-10-08)
+
+- Pin, lockfile and both workflow `uses:` refs are on **v0.3.2, pinned by commit SHA
+  `9e4f342a06b4e74bb27d73cf759e931033fa97bf`**: the `v0.3.2` tag doesn't exist yet. Once a human tags it,
+  switch pyproject.toml (`tag = "v0.3.2"`, then `uv lock`) and both workflow refs to `@v0.3.2`.
+- **The investigator judge now sees exactly what the loop saw**, through v0.3.2's `EvalOutput(..., input=...)`:
+  the loop's own task message (trigger + facts recomputed from the recorded FRED data) plus the FOMC context
+  its `get_fomc_context` tool serves. Before, `investigator_cases()` pre-built that into `case.input` and the
+  task rebuilt a `Trigger` from the dict (and so did the replay test). Now the case input is the scenario as
+  written, and one helper, `investigator_setup(case_id)`, builds the loop's data and trigger for the task and
+  the replay tests.
+- No other v0.3.2 feature applies here (`no_multiples`, `DownloadResult.links`); eval history lines gain
+  `dirty`.
+- 317 tests (315 before; 2 new in `test_eval_suites.py`), ruff, ruff format and actionlint pass.
+- The judge-input gap below is fixed in v0.3.2.
+
 ## Scheduled runs failing: FRED rejects the repo's `FRED_API_KEY` (2026-10-08)
 
 - **Every real Macro run since 2026-09-28 has failed** at fetch: FRED answers HTTP 400 to all 25 series
@@ -133,7 +149,7 @@ the demo files in `docs/demo/` from a real run.
 
 ## Test count
 
-**314 tests passing** (2026-10-08). `uv run ruff check .` and `uv run ruff format --check .` are clean, and the suite makes
+**317 tests passing** (2026-10-08, agents-core v0.3.2). `uv run ruff check .` and `uv run ruff format --check .` are clean, and the suite makes
 no network calls. New tests:
 
 - `test_investigator.py`: tools on real recorded data, the trigger, the template, and three real
@@ -194,7 +210,7 @@ yet. That run migrates the state automatically.
   agents-core: pass it through `extra_body`, or pin an SDK version that supports it.
 - **(Fixed in v0.3.1.) `agents-evals run` caps each suite separately.** A repo with several suites needs its own wrapper for one
   total cap: here, `evals/run_macro.py` passes each suite what's left.
-- **`LLMJudge` renders `case.input` verbatim.** For a loop whose real input differs from the fixture, the case
+- **(Fixed in v0.3.2.) `LLMJudge` renders `case.input` verbatim.** For a loop whose real input differs from the fixture, the case
   input has to be rebuilt to what the loop saw, or the judge grades against the wrong numbers (case study 5).
   An `input=` selector like the existing `output=` would help.
 

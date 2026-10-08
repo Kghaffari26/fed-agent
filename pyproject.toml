@@ -40,4 +40,5 @@ build-backend = "hatchling.build"
 packages = ["agents", "scripts"]
 
 [tool.uv.sources]
-agents-core = { git = "https://github.com/Kghaffari26/agents-core", rev = "v0.3.1" }
+# agents-core v0.3.2, pinned by commit until the v0.3.2 tag exists (then: tag = "v0.3.2").
+agents-core = { git = "https://github.com/Kghaffari26/agents-core", rev = "9e4f342a06b4e74bb27d73cf759e931033fa97bf" }

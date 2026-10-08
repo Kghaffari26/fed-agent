@@ -20,7 +20,7 @@ jobs:
     # this grant. It only checks out the repo.
     permissions:
       contents: read
-    uses: Kghaffari26/agents-core/.github/workflows/run-evals.yml@v0.3.1
+    uses: Kghaffari26/agents-core/.github/workflows/run-evals.yml@9e4f342a06b4e74bb27d73cf759e931033fa97bf  # v0.3.2 (switch to @v0.3.2 once tagged)
     with:
       # One total cap across all suites (agents-core v0.3.1's total_max_usd); a normal
       # run costs about a third of it. Eval guard failures stay out of data/.
