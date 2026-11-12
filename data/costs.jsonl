@@ -43,3 +43,4 @@
 {"ts": "2026-11-09T23:17:29Z", "kind": "run", "agent": "macro", "run_id": "2026-11-09T23-17-28Z-b24910", "status": "failed", "calls": 0, "run_usd": 0.0}
 {"ts": "2026-11-10T20:43:12Z", "kind": "run", "agent": "macro", "run_id": "2026-11-10T20-43-11Z-55df93", "status": "failed", "calls": 0, "run_usd": 0.0}
 {"ts": "2026-11-11T21:05:35Z", "kind": "run", "agent": "macro", "run_id": "2026-11-11T21-05-33Z-e8fd43", "status": "failed", "calls": 0, "run_usd": 0.0}
+{"ts": "2026-11-12T21:20:00Z", "kind": "run", "agent": "macro", "run_id": "2026-11-12T21-19-58Z-4e40cc", "status": "failed", "calls": 0, "run_usd": 0.0}
